@@ -60,7 +60,7 @@ export const LoginScreen: React.FC = () => {
       Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
       return;
     }
-    setOtpCode('123456'); // Pre-fill verification code for smooth UX
+    setOtpCode('123456');
     setStep('OTP');
   };
 
@@ -75,7 +75,6 @@ export const LoginScreen: React.FC = () => {
       const isExistingPastor = loginWithPhone(phoneNumber);
 
       if (!isExistingPastor) {
-        // Not yet registered: open registration form with verified phone number pre-filled!
         setJoinForm((prev) => ({
           ...prev,
           phone: phoneNumber.replace(/\D/g, '').slice(-10),
@@ -83,7 +82,7 @@ export const LoginScreen: React.FC = () => {
         setLoading(false);
         Alert.alert(
           'Mobile Verified',
-          'Your mobile number is verified. Please complete your Pastor Profile & select your Association to enter.',
+          'Your mobile number is verified. Complete your Pastor Profile to join your Association.',
           [
             {
               text: 'Complete Profile',
@@ -117,7 +116,6 @@ export const LoginScreen: React.FC = () => {
     setLoading(true);
     try {
       if (instantEnter) {
-        // Create account and enter directly
         await registerPastor({
           name: joinForm.name.trim(),
           phone: targetPhone,
@@ -134,7 +132,6 @@ export const LoginScreen: React.FC = () => {
           `Your profile is ready! You are enrolled in the pastors association.`
         );
       } else {
-        // Submit request for leader verification
         await submitJoinRequest({
           name: joinForm.name.trim(),
           phone: targetPhone,
@@ -148,7 +145,7 @@ export const LoginScreen: React.FC = () => {
         setShowJoinModal(false);
         Alert.alert(
           'Request Submitted',
-          `Your membership application has been submitted to association leaders for verification. You will be notified via SMS.`,
+          `Your membership application has been submitted to association leaders for verification.`,
           [{ text: 'OK' }]
         );
       }
@@ -177,13 +174,13 @@ export const LoginScreen: React.FC = () => {
           activeOpacity={0.7}
           onPress={() => setShowLangModal(true)}
         >
-          <Feather name="globe" size={14} color={COLORS.brandTeal} />
+          <Feather name="globe" size={13} color={COLORS.brandTeal} />
           <Text style={styles.langPillText}>{language}</Text>
-          <Feather name="chevron-down" size={13} color={COLORS.muted} />
+          <Feather name="chevron-down" size={13} color="#94A3B8" />
         </TouchableOpacity>
       </View>
 
-      {/* Branded Logo Presentation */}
+      {/* Brand Logo Presentation */}
       <View style={styles.brandBox}>
         <Image
           source={require('../../assets/logo.png')}
@@ -193,100 +190,103 @@ export const LoginScreen: React.FC = () => {
         <Text style={styles.tagline}>One Fold, One Shepherd</Text>
       </View>
 
-      {/* Main Login Card */}
-      <View style={styles.loginCard}>
+      {/* Cardless Clean Form Area */}
+      <View style={styles.formContainer}>
         {step === 'PHONE' ? (
           /* STEP 1: Phone Number Input */
-          <View style={styles.stepContainer}>
-            <Text style={styles.fieldHeading}>Pastor Mobile Number</Text>
-            <Text style={styles.fieldSub}>
-              Enter your 10-digit mobile number to sign in or register
-            </Text>
+          <View style={styles.stepBox}>
+            <View style={styles.headingBox}>
+              <Text style={styles.fieldHeading}>Pastor Mobile Number</Text>
+              <Text style={styles.fieldSub}>
+                Enter your mobile number to sign in or join your association
+              </Text>
+            </View>
 
-            <View style={styles.phoneInputRow}>
-              <View style={styles.countryCodeBadge}>
+            {/* Unified Phone Input Field */}
+            <View style={styles.unifiedPhoneInput}>
+              <View style={styles.prefixBlock}>
                 <Text style={styles.flagIcon}>🇮🇳</Text>
                 <Text style={styles.countryCodeText}>+91</Text>
               </View>
+              <View style={styles.verticalDivider} />
               <TextInput
-                style={styles.phoneInput}
-                placeholder="Enter 10-digit mobile"
-                placeholderTextColor={COLORS.muted}
+                style={styles.phoneTextInput}
+                placeholder="10-digit number"
+                placeholderTextColor="#94A3B8"
                 keyboardType="phone-pad"
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
                 maxLength={10}
               />
+              {phoneNumber.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setPhoneNumber('')}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.clearBtn}
+                >
+                  <Feather name="x-circle" size={16} color="#94A3B8" />
+                </TouchableOpacity>
+              )}
             </View>
 
+            {/* Primary Action Button */}
             <TouchableOpacity
               style={styles.primaryBtn}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               onPress={handleSendOtp}
             >
               <Text style={styles.primaryBtnText}>Get OTP Verification</Text>
-              <Feather name="arrow-right" size={18} color="#FFFFFF" />
+              <Feather name="arrow-right" size={17} color="#FFFFFF" />
             </TouchableOpacity>
 
-            {/* Divider */}
-            <View style={styles.orDivider}>
-              <View style={styles.orLine} />
-              <Text style={styles.orText}>OR</Text>
-              <View style={styles.orLine} />
+            {/* Clean Register Prompt */}
+            <View style={styles.registerRow}>
+              <Text style={styles.registerQuestion}>New to ShepherdLink?</Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  setJoinForm((prev) => ({
+                    ...prev,
+                    phone: phoneNumber.replace(/\D/g, '').slice(-10),
+                  }));
+                  setShowJoinModal(true);
+                }}
+              >
+                <Text style={styles.registerActionText}> Register & Join Association</Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Register / Join Association Button */}
-            <TouchableOpacity
-              style={styles.registerBtn}
-              activeOpacity={0.8}
-              onPress={() => {
-                setJoinForm((prev) => ({
-                  ...prev,
-                  phone: phoneNumber.replace(/\D/g, '').slice(-10),
-                }));
-                setShowJoinModal(true);
-              }}
-            >
-              <Feather name="user-plus" size={17} color={COLORS.brandNavy} />
-              <Text style={styles.registerBtnText}>
-                New Pastor? Register & Join Association
-              </Text>
-            </TouchableOpacity>
           </View>
         ) : (
           /* STEP 2: OTP Verification */
-          <View style={styles.stepContainer}>
+          <View style={styles.stepBox}>
             <View style={styles.otpHeader}>
               <View>
-                <Text style={styles.fieldHeading}>Enter Verification Code</Text>
-                <Text style={styles.fieldSub}>
-                  Sent via SMS to +91 {phoneNumber}
-                </Text>
+                <Text style={styles.fieldHeading}>Verification Code</Text>
+                <Text style={styles.fieldSub}>Sent via SMS to +91 {phoneNumber}</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setStep('PHONE')}
                 style={styles.editPhoneBtn}
                 activeOpacity={0.7}
               >
-                <Text style={styles.editPhoneText}>Change</Text>
+                <Text style={styles.editPhoneText}>Edit</Text>
               </TouchableOpacity>
             </View>
 
             <TextInput
               style={styles.otpInput}
               placeholder="123456"
-              placeholderTextColor={COLORS.muted}
+              placeholderTextColor="#CBD5E1"
               keyboardType="number-pad"
               value={otpCode}
               onChangeText={setOtpCode}
               maxLength={6}
               autoFocus
             />
-            <Text style={styles.otpHint}>Test code: 123456</Text>
 
             <TouchableOpacity
               style={styles.primaryBtn}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               onPress={handleVerifyOtp}
               disabled={loading}
             >
@@ -294,33 +294,28 @@ export const LoginScreen: React.FC = () => {
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <>
-                  <Text style={styles.primaryBtnText}>Verify OTP & Continue</Text>
-                  <Feather name="check" size={18} color="#FFFFFF" />
+                  <Text style={styles.primaryBtnText}>Verify OTP & Sign In</Text>
+                  <Feather name="check" size={17} color="#FFFFFF" />
                 </>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() =>
-                Alert.alert(
-                  'Code Resent',
-                  `A new 6-digit OTP has been sent to +91 ${phoneNumber}`
-                )
+                Alert.alert('Code Resent', `A new OTP has been sent to +91 ${phoneNumber}`)
               }
               style={styles.resendBtn}
             >
-              <Text style={styles.resendText}>Didn&apos;t receive code? Resend OTP</Text>
+              <Text style={styles.resendText}>Resend OTP</Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {/* Association Info Footer Note */}
+      {/* Security Footer Note */}
       <View style={styles.securityFooter}>
-        <Feather name="shield" size={15} color={COLORS.brandTeal} />
-        <Text style={styles.securityText}>
-          Secure Pastors Association Platform. Verified ordained ministers only.
-        </Text>
+        <Feather name="shield" size={13} color="#94A3B8" />
+        <Text style={styles.securityText}>Verified Pastors Association Network</Text>
       </View>
 
       {/* Modal: Language Selection */}
@@ -396,7 +391,7 @@ export const LoginScreen: React.FC = () => {
               <TextInput
                 style={styles.formInput}
                 placeholder="e.g. Pastor Rajesh Kumar"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor="#94A3B8"
                 value={joinForm.name}
                 onChangeText={(t) => setJoinForm({ ...joinForm, name: t })}
               />
@@ -404,9 +399,9 @@ export const LoginScreen: React.FC = () => {
               {/* Mobile Number */}
               <Text style={styles.formLabel}>Mobile Number *</Text>
               <TextInput
-                style={[styles.formInput, { backgroundColor: '#F9FAFB' }]}
+                style={[styles.formInput, { backgroundColor: '#F8FAFC' }]}
                 placeholder="10-digit mobile"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor="#94A3B8"
                 keyboardType="phone-pad"
                 value={joinForm.phone}
                 onChangeText={(t) => setJoinForm({ ...joinForm, phone: t })}
@@ -418,7 +413,7 @@ export const LoginScreen: React.FC = () => {
               <TextInput
                 style={styles.formInput}
                 placeholder="e.g. Calvary Gospel Church"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor="#94A3B8"
                 value={joinForm.churchName}
                 onChangeText={(t) => setJoinForm({ ...joinForm, churchName: t })}
               />
@@ -491,7 +486,7 @@ export const LoginScreen: React.FC = () => {
               <TextInput
                 style={styles.formInput}
                 placeholder="e.g. Pentecostal / Baptist / Independent"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor="#94A3B8"
                 value={joinForm.denomination}
                 onChangeText={(t) => setJoinForm({ ...joinForm, denomination: t })}
               />
@@ -507,7 +502,7 @@ export const LoginScreen: React.FC = () => {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <>
-                    <FontAwesome5 name="check" size={15} color="#FFFFFF" />
+                    <FontAwesome5 name="check" size={14} color="#FFFFFF" />
                     <Text style={styles.primaryBtnText}>
                       Create Account & Join {selectedAssoc?.mandal || 'Association'}
                     </Text>
@@ -536,18 +531,18 @@ export const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FFFFFF', // Seamless white background matches logo background!
+    backgroundColor: '#FFFFFF',
   },
   contentContainer: {
     paddingHorizontal: 24,
     paddingTop: 12,
-    paddingBottom: 40,
+    paddingBottom: 32,
   },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   topBarLeft: {
     width: 20,
@@ -558,10 +553,10 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
   },
   langPillText: {
     fontSize: 13,
@@ -570,60 +565,53 @@ const styles = StyleSheet.create({
   },
   brandBox: {
     alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 20,
+    marginTop: 6,
+    marginBottom: 28,
   },
   brandLogo: {
-    width: 220,
-    height: 130,
+    width: 200,
+    height: 120,
   },
   tagline: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: COLORS.brandNavy,
     marginTop: -8,
+    letterSpacing: 0.3,
   },
-  loginCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+  formContainer: {
+    paddingHorizontal: 4,
   },
-  stepContainer: {
-    gap: 10,
+  stepBox: {
+    gap: 16,
+  },
+  headingBox: {
+    gap: 4,
   },
   fieldHeading: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.brandNavy,
+    color: '#0F172A',
   },
   fieldSub: {
     fontSize: 13,
-    color: COLORS.muted,
-    marginBottom: 4,
+    color: '#64748B',
+    lineHeight: 18,
   },
-  phoneInputRow: {
+  unifiedPhoneInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 4,
+    height: 54,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 14,
   },
-  countryCodeBadge: {
-    height: 52,
+  prefixBlock: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 14,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    backgroundColor: '#F9FAFB',
   },
   flagIcon: {
     fontSize: 16,
@@ -631,71 +619,55 @@ const styles = StyleSheet.create({
   countryCodeText: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.brandNavy,
+    color: '#0F172A',
   },
-  phoneInput: {
+  verticalDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 12,
+  },
+  phoneTextInput: {
     flex: 1,
-    height: 52,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    fontSize: 17,
+    height: '100%',
+    fontSize: 16,
     fontWeight: '600',
-    color: COLORS.brandNavy,
+    color: '#0F172A',
+  },
+  clearBtn: {
+    padding: 4,
   },
   primaryBtn: {
     height: 52,
     backgroundColor: COLORS.brandNavy,
-    borderRadius: 12,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 8,
-    shadowColor: COLORS.brandNavy,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
+    marginTop: 4,
   },
   primaryBtnText: {
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
-  orDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 14,
-    gap: 10,
-  },
-  orLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  orText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.muted,
-  },
-  registerBtn: {
-    height: 50,
-    backgroundColor: '#F0FDFA',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#99F6E4',
+  registerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    marginTop: 8,
+    paddingVertical: 8,
   },
-  registerBtnText: {
-    fontSize: 14,
+  registerQuestion: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  registerActionText: {
+    fontSize: 13,
     fontWeight: '700',
-    color: COLORS.brandNavy,
+    color: COLORS.brandTeal,
   },
   otpHeader: {
     flexDirection: 'row',
@@ -703,10 +675,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   editPhoneBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: COLORS.brandTealSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#F1F5F9',
   },
   editPhoneText: {
     fontSize: 12,
@@ -714,27 +686,20 @@ const styles = StyleSheet.create({
     color: COLORS.brandTeal,
   },
   otpInput: {
-    height: 56,
-    borderWidth: 2,
+    height: 54,
+    borderWidth: 1.5,
     borderColor: COLORS.brandTeal,
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: '#FFFFFF',
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     textAlign: 'center',
     letterSpacing: 10,
-    color: COLORS.brandNavy,
-    marginTop: 6,
-  },
-  otpHint: {
-    fontSize: 11,
-    color: COLORS.muted,
-    textAlign: 'center',
+    color: '#0F172A',
   },
   resendBtn: {
     alignItems: 'center',
-    marginTop: 6,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   resendText: {
     fontSize: 13,
@@ -745,20 +710,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 26,
-    paddingHorizontal: 16,
+    gap: 6,
+    marginTop: 36,
   },
   securityText: {
     fontSize: 12,
-    color: COLORS.muted,
-    textAlign: 'center',
-    lineHeight: 16,
-    flex: 1,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-end',
   },
   langModalCard: {
@@ -781,7 +743,7 @@ const styles = StyleSheet.create({
   },
   modalSub: {
     fontSize: 13,
-    color: COLORS.muted,
+    color: '#64748B',
     marginTop: 2,
   },
   langOptionRow: {
@@ -808,7 +770,7 @@ const styles = StyleSheet.create({
   },
   langOptionSub: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: '#64748B',
     marginTop: 2,
   },
   joinModalCard: {
@@ -829,7 +791,7 @@ const styles = StyleSheet.create({
   formInput: {
     height: 48,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
     borderRadius: 10,
     paddingHorizontal: 14,
     fontSize: 15,
@@ -850,8 +812,8 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
   },
   assocPillActive: {
     backgroundColor: COLORS.brandNavy,
@@ -867,7 +829,7 @@ const styles = StyleSheet.create({
   },
   assocPillMeta: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: '#64748B',
     marginTop: 2,
   },
   secondaryOutlineBtn: {
@@ -878,7 +840,7 @@ const styles = StyleSheet.create({
   secondaryOutlineBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.muted,
+    color: '#64748B',
     textDecorationLine: 'underline',
   },
 });

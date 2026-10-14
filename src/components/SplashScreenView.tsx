@@ -149,8 +149,7 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
           },
         ]}
       >
-        <Text style={styles.poweredByLabel}>POWERED BY</Text>
-        <Text style={styles.poweredByBrand}>Covenant Synergy Pvt Ltd</Text>
+        <Text style={styles.poweredByText}>Powered by Covenant Synergy Pvt Ltd</Text>
       </Animated.View>
     </Animated.View>
   );
@@ -199,19 +198,12 @@ const styles = StyleSheet.create({
   },
   poweredByContainer: {
     alignItems: 'center',
-    paddingBottom: 16,
-    gap: 3,
+    paddingBottom: 20,
   },
-  poweredByLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#9CA3AF',
-    letterSpacing: 1.6,
-  },
-  poweredByBrand: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.brandNavy,
-    letterSpacing: 0.4,
+  poweredByText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+    letterSpacing: 0.5,
   },
 });
