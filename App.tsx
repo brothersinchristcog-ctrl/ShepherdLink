@@ -3,7 +3,6 @@ import { View, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { AppProvider, useApp } from './src/context/AppContext';
-import { ScreenPicker } from './src/components/ScreenPicker';
 import { TabBar } from './src/components/TabBar';
 import { SplashScreenView } from './src/components/SplashScreenView';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -16,12 +15,12 @@ import { CreateEventScreen } from './src/screens/CreateEventScreen';
 import { AttendanceScreen } from './src/screens/AttendanceScreen';
 import { DonateScreen } from './src/screens/DonateScreen';
 import { COLORS } from './src/constants/theme';
-// Initialize Firebase (runs in mock/offline mode if env variables are not yet configured)
+// Initialize Firebase
 import './src/config/firebase';
 
 // Instruct native splash screen to stay visible until app is ready
 SplashScreen.preventAutoHideAsync().catch(() => {
-  /* Ignore error in environments where splash is not available (e.g. web fallback) */
+  /* Ignore error in environments where splash is not available */
 });
 
 const MainNavigator: React.FC = () => {
@@ -55,8 +54,6 @@ const MainNavigator: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.ground} />
-      {/* Top Interactive Screen Picker for prototype review */}
-      <ScreenPicker />
 
       {/* Active Screen View */}
       <View style={styles.screenContainer}>{renderScreen()}</View>
