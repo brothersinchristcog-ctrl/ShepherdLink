@@ -19,14 +19,14 @@ const { width } = Dimensions.get('window');
 
 export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
   onFinish,
-  minDurationMs = 3800, // Increased splash screen duration as requested
+  minDurationMs = 3800,
 }) => {
   // Logo entrance: slides smoothly from top to bottom (-80 -> 0) + fades in (0 -> 1)
   const [logoFadeAnim] = useState(() => new Animated.Value(0));
   const [logoTranslateY] = useState(() => new Animated.Value(-80));
   const [logoScaleAnim] = useState(() => new Animated.Value(0.92));
 
-  // Tagline entrance: fades and glides gently into place under the logo
+  // Tagline & Powered By entrance: fades in shortly after logo settles
   const [taglineFadeAnim] = useState(() => new Animated.Value(0));
   const [taglineTranslateY] = useState(() => new Animated.Value(15));
 
@@ -55,7 +55,7 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
       }),
     ]).start();
 
-    // 2. Tagline enters smoothly shortly after the logo settles
+    // 2. Tagline & Footer enter smoothly shortly after the logo settles
     Animated.parallel([
       Animated.timing(taglineFadeAnim, {
         toValue: 1,
@@ -72,7 +72,7 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
       }),
     ]).start();
 
-    // 3. Keep the branded splash screen visible for minDurationMs (3.8s) before fading out smoothly
+    // 3. Keep the branded splash screen visible for minDurationMs before fading out smoothly
     const timer = setTimeout(() => {
       Animated.timing(containerFade, {
         toValue: 0,
@@ -101,6 +101,10 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
     <Animated.View style={[styles.container, { opacity: containerFade }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
+      {/* Top placeholder to help center the logo vertically */}
+      <View style={styles.topSpacer} />
+
+      {/* Center Brand Logo & Tagline */}
       <View style={styles.contentContainer}>
         {/* Animated Brand Logo (Glides top to bottom, then stays crisp and steady) */}
         <Animated.View
@@ -135,6 +139,19 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
           <Text style={styles.tagline}>One Fold, One Shepherd</Text>
         </Animated.View>
       </View>
+
+      {/* Powered by Covenant Synergy Pvt Ltd */}
+      <Animated.View
+        style={[
+          styles.poweredByContainer,
+          {
+            opacity: taglineFadeAnim,
+          },
+        ]}
+      >
+        <Text style={styles.poweredByLabel}>POWERED BY</Text>
+        <Text style={styles.poweredByBrand}>Covenant Synergy Pvt Ltd</Text>
+      </Animated.View>
     </Animated.View>
   );
 };
@@ -148,8 +165,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: '#FFFFFF',
     zIndex: 9999,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 24,
+  },
+  topSpacer: {
+    height: 40,
   },
   contentContainer: {
     justifyContent: 'center',
@@ -175,5 +196,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.brandNavy,
     letterSpacing: 0.5,
+  },
+  poweredByContainer: {
+    alignItems: 'center',
+    paddingBottom: 16,
+    gap: 3,
+  },
+  poweredByLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 1.6,
+  },
+  poweredByBrand: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.brandNavy,
+    letterSpacing: 0.4,
   },
 });
