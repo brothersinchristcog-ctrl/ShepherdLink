@@ -11,7 +11,65 @@ export type ScreenName =
 
 export type TabName = 'home' | 'directory' | 'events' | 'prayer' | 'profile';
 
-export type PastorRole = 'PRESIDENT' | 'SECRETARY' | 'TREASURER' | 'MEMBER';
+export type AdminRole = 'PRESIDENT' | 'SECRETARY' | 'TREASURER';
+export type PastorRole = AdminRole | 'MEMBER';
+
+export const ADMIN_ROLES: PastorRole[] = ['PRESIDENT', 'SECRETARY', 'TREASURER'];
+
+export const isPastorAdmin = (role: PastorRole): boolean => {
+  return ADMIN_ROLES.includes(role);
+};
+
+export interface PastorPermissions {
+  canManageMembers: boolean;
+  canAssignRoles: boolean;
+  canCreateEvents: boolean;
+  canTrackAttendance: boolean;
+  canManageDonations: boolean;
+  canBroadcastNotices: boolean;
+}
+
+export const getDefaultPermissionsForRole = (role: PastorRole): PastorPermissions => {
+  switch (role) {
+    case 'PRESIDENT':
+      return {
+        canManageMembers: true,
+        canAssignRoles: true,
+        canCreateEvents: true,
+        canTrackAttendance: true,
+        canManageDonations: true,
+        canBroadcastNotices: true,
+      };
+    case 'SECRETARY':
+      return {
+        canManageMembers: true,
+        canAssignRoles: true,
+        canCreateEvents: true,
+        canTrackAttendance: true,
+        canManageDonations: false,
+        canBroadcastNotices: true,
+      };
+    case 'TREASURER':
+      return {
+        canManageMembers: false,
+        canAssignRoles: false,
+        canCreateEvents: false,
+        canTrackAttendance: true,
+        canManageDonations: true,
+        canBroadcastNotices: false,
+      };
+    case 'MEMBER':
+    default:
+      return {
+        canManageMembers: false,
+        canAssignRoles: false,
+        canCreateEvents: false,
+        canTrackAttendance: false,
+        canManageDonations: false,
+        canBroadcastNotices: false,
+      };
+  }
+};
 
 export interface Association {
   id: string;
@@ -36,6 +94,8 @@ export interface Pastor {
   associationName: string;
   associationCode?: string;
   isVerified: boolean;
+  isAdmin?: boolean;
+  permissions?: PastorPermissions;
   churchName: string;
   village: string;
   mandal: string;

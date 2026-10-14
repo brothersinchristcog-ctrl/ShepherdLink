@@ -5,6 +5,8 @@ import {
   PrayerRequest,
   Notice,
   DonationRecord,
+  isPastorAdmin,
+  getDefaultPermissionsForRole,
 } from '../types';
 
 export const INITIAL_ASSOCIATIONS: Association[] = [
@@ -46,7 +48,7 @@ export const INITIAL_ASSOCIATIONS: Association[] = [
   },
 ];
 
-export const INITIAL_PASTORS: Pastor[] = [
+const RAW_PASTORS: Omit<Pastor, 'isAdmin' | 'permissions'>[] = [
   // Gannavaram Pastors Association Members
   {
     id: 'p1',
@@ -203,6 +205,12 @@ export const INITIAL_PASTORS: Pastor[] = [
     languages: ['Telugu', 'English', 'Tamil'],
   },
 ];
+
+export const INITIAL_PASTORS: Pastor[] = RAW_PASTORS.map((p) => ({
+  ...p,
+  isAdmin: isPastorAdmin(p.role),
+  permissions: getDefaultPermissionsForRole(p.role),
+}));
 
 export const INITIAL_EVENTS: AssociationEvent[] = [
   {

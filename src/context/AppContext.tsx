@@ -8,6 +8,10 @@ import {
   PrayerRequest,
   Notice,
   DonationRecord,
+  PastorRole,
+  PastorPermissions,
+  isPastorAdmin,
+  getDefaultPermissionsForRole,
 } from '../types';
 import {
   INITIAL_ASSOCIATIONS,
@@ -46,7 +50,9 @@ interface AppContextType {
   // Current logged in user info
   currentUser: {
     name: string;
-    role: string;
+    role: PastorRole;
+    isAdmin: boolean;
+    permissions: PastorPermissions;
     association: string;
     associationId: string;
     district: string;
@@ -80,6 +86,24 @@ interface AppContextType {
     district?: string;
   }) => Promise<boolean>;
   logout: () => void;
+
+  // Admin member & role management
+  updatePastorRoleAndPermissions: (
+    pastorId: string,
+    role: PastorRole,
+    customPermissions?: Partial<PastorPermissions>
+  ) => Promise<boolean>;
+  addMemberByAdmin: (data: {
+    name: string;
+    phone: string;
+    churchName: string;
+    role: PastorRole;
+    village?: string;
+    mandal?: string;
+    district?: string;
+    denomination?: string;
+    permissions?: Partial<PastorPermissions>;
+  }) => Promise<Pastor>;
 
   // Language
   language: string;
@@ -186,9 +210,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [loggedPastor, setLoggedPastor] = useState<Pastor | null>(INITIAL_PASTORS[1]);
 
+  const currentUserRole: PastorRole = loggedPastor?.role || 'MEMBER';
+  const currentUserIsAdmin: boolean = loggedPastor?.isAdmin ?? isPastorAdmin(currentUserRole);
+  const currentUserPermissions: PastorPermissions =
+    loggedPastor?.permissions || getDefaultPermissionsForRole(currentUserRole);
+
   const currentUser = {
     name: loggedPastor?.name || activePastors[0]?.name || 'Pastor K. David Kumar',
-    role: loggedPastor?.role || 'MEMBER',
+    role: currentUserRole,
+    isAdmin: currentUserIsAdmin,
+    permissions: currentUserPermissions,
     association: currentAssociation.name,
     associationId: currentAssociation.id,
     district: currentAssociation.district,
@@ -296,6 +327,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       associationName: newAssoc.name,
       associationCode: newAssoc.code,
       isVerified: true,
+      isAdmin: true,
+      permissions: getDefaultPermissionsForRole('PRESIDENT'),
       churchName: `${data.name} Central Fellowship`,
       village: newAssoc.mandal,
       mandal: newAssoc.mandal,
@@ -366,6 +399,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       associationName: assoc.name,
       associationCode: assoc.code,
       isVerified: true,
+      isAdmin: false,
+      permissions: getDefaultPermissionsForRole('MEMBER'),
       churchName: data.churchName || 'Faith Fellowship Church',
       village: data.village || assoc.mandal,
       mandal: data.mandal || assoc.mandal,
@@ -423,6 +458,113 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     return FirestoreService.saveJoinRequest(req);
+  };
+
+  const updatePastorRoleAndPermissions = async (
+    pastorId: string,
+    role: PastorRole,
+    customPermissions?: Partial<PastorPermissions>
+  ): Promise<boolean> => {
+    // Administrative rights are strictly restricted to only: PRESIDENT, SECRETARY, TREASURER
+    const adminStatus = isPastorAdmin(role);
+    const basePermissions = getDefaultPermissionsForRole(role);
+    const finalPermissions: PastorPermissions = {
+      ...basePermissions,
+      ...(customPermissions || {}),
+    };
+
+    let updatedTarget: Pastor | null = null;
+
+    setAllPastors((prev) =>
+      prev.map((p) => {
+        if (p.id === pastorId) {
+          updatedTarget = {
+            ...p,
+            role,
+            isAdmin: adminStatus,
+            permissions: finalPermissions,
+          };
+          return updatedTarget;
+        }
+        return p;
+      })
+    );
+
+    if (selectedPastor?.id === pastorId && updatedTarget) {
+      setSelectedPastor(updatedTarget);
+    }
+    if (loggedPastor?.id === pastorId && updatedTarget) {
+      setLoggedPastor(updatedTarget);
+    }
+
+    if (updatedTarget) {
+      FirestoreService.savePastor(updatedTarget).catch(console.warn);
+      return true;
+    }
+    return false;
+  };
+
+  const addMemberByAdmin = async (data: {
+    name: string;
+    phone: string;
+    churchName: string;
+    role: PastorRole;
+    village?: string;
+    mandal?: string;
+    district?: string;
+    denomination?: string;
+    permissions?: Partial<PastorPermissions>;
+  }): Promise<Pastor> => {
+    const cleanPhone = data.phone.replace(/\D/g, '').slice(-10);
+    const formattedName =
+      data.name.startsWith('Pastor ') || data.name.startsWith('Rev. ')
+        ? data.name
+        : `Pastor ${data.name}`;
+
+    // Admin rights are restricted strictly to PRESIDENT, SECRETARY, TREASURER
+    const adminStatus = isPastorAdmin(data.role);
+    const basePermissions = getDefaultPermissionsForRole(data.role);
+    const finalPermissions: PastorPermissions = {
+      ...basePermissions,
+      ...(data.permissions || {}),
+    };
+
+    const newPastor: Pastor = {
+      id: `p-${Date.now()}`,
+      name: formattedName,
+      associationId: currentAssociation.id,
+      associationName: currentAssociation.name,
+      associationCode: currentAssociation.code,
+      isVerified: true,
+      isAdmin: adminStatus,
+      permissions: finalPermissions,
+      churchName: data.churchName.trim() || 'Faith Fellowship Church',
+      village: data.village?.trim() || currentAssociation.mandal,
+      mandal: data.mandal?.trim() || currentAssociation.mandal,
+      district: data.district?.trim() || currentAssociation.district,
+      state: currentAssociation.state,
+      role: data.role,
+      phone: `+91 ${cleanPhone}`,
+      churchAddress: `${data.churchName}, ${data.mandal || currentAssociation.mandal}`,
+      denomination: data.denomination?.trim() || 'Independent',
+      ordainedYear: new Date().getFullYear().toString(),
+      ministry: adminStatus ? 'Pastoral & Association Administration' : 'Pastoral & Evangelism',
+      languages: ['Telugu', 'English'],
+    };
+
+    setAllPastors((prev) => [newPastor, ...prev]);
+
+    // Increment association member count
+    setAssociations((prev) =>
+      prev.map((a) =>
+        a.id === currentAssociation.id ? { ...a, memberCount: (a.memberCount || 0) + 1 } : a
+      )
+    );
+
+    FirestoreService.savePastor(newPastor).catch(console.warn);
+    FirestoreService.incrementAssociationMemberCount(currentAssociation.id).catch(console.warn);
+
+    return newPastor;
   };
 
   const logout = () => {
@@ -548,6 +690,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         registerPastor,
         submitJoinRequest,
         logout,
+        updatePastorRoleAndPermissions,
+        addMemberByAdmin,
         language,
         setLanguage,
         pastors: activePastors,
