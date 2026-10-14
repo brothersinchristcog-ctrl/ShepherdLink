@@ -13,14 +13,6 @@ import {
   isPastorAdmin,
   getDefaultPermissionsForRole,
 } from '../types';
-import {
-  INITIAL_ASSOCIATIONS,
-  INITIAL_PASTORS,
-  INITIAL_EVENTS,
-  INITIAL_PRAYERS,
-  INITIAL_NOTICES,
-  INITIAL_DONATIONS,
-} from '../data/mockData';
 import { FirestoreService } from '../services/firestoreService';
 
 interface AppContextType {
@@ -34,6 +26,7 @@ interface AppContextType {
   // Multi-Association support
   associations: Association[];
   currentAssociation: Association;
+  setCurrentAssociation: (assoc: Association) => void;
   switchAssociation: (associationId: string) => void;
   registerAssociation: (data: {
     name: string;
@@ -62,8 +55,10 @@ interface AppContextType {
     phone: string;
   };
   loggedPastor: Pastor | null;
+  setLoggedPastor: (pastor: Pastor | null) => void;
   isLoggedIn: boolean;
-  loginWithPhone: (phoneNumber: string) => boolean;
+  loginWithPhone: (phoneNumber: string, targetAssociationId?: string) => boolean;
+  checkMemberExists: (phoneNumber: string, associationId: string) => Pastor | null;
   registerPastor: (data: {
     name: string;
     phone: string;
@@ -153,32 +148,40 @@ const TAB_MAP: Record<ScreenName, TabName> = {
   donate: 'home',
 };
 
+const DEFAULT_ASSOCIATION: Association = {
+  id: '',
+  name: 'ShepherdLink Association',
+  code: '',
+  state: '',
+  district: '',
+  mandal: '',
+  memberCount: 0,
+  establishedYear: '',
+  isVerified: false,
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('login');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [showPrototypePicker, setShowPrototypePicker] = useState<boolean>(true);
   const [language, setLanguage] = useState<string>('English');
 
-  // Multi-Association State
-  const [associations, setAssociations] = useState<Association[]>(INITIAL_ASSOCIATIONS);
-  const [currentAssociation, setCurrentAssociation] = useState<Association>(INITIAL_ASSOCIATIONS[0]);
+  // Multi-Association State (Clean dynamic data)
+  const [associations, setAssociations] = useState<Association[]>([]);
+  const [currentAssociation, setCurrentAssociation] = useState<Association>(DEFAULT_ASSOCIATION);
 
-  const [allPastors, setAllPastors] = useState<Pastor[]>(INITIAL_PASTORS);
-  const [selectedPastor, setSelectedPastor] = useState<Pastor>(INITIAL_PASTORS[1]);
+  const [allPastors, setAllPastors] = useState<Pastor[]>([]);
+  const [selectedPastor, setSelectedPastor] = useState<Pastor | null>(null);
 
-  const [allEvents, setAllEvents] = useState<AssociationEvent[]>(INITIAL_EVENTS);
-  const [selectedEvent, setSelectedEvent] = useState<AssociationEvent | null>(INITIAL_EVENTS[0]);
+  const [allEvents, setAllEvents] = useState<AssociationEvent[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<AssociationEvent | null>(null);
 
-  const [prayers, setPrayers] = useState<PrayerRequest[]>(INITIAL_PRAYERS);
-  const [notices] = useState<Notice[]>(INITIAL_NOTICES);
-  const [donations, setDonations] = useState<DonationRecord[]>(INITIAL_DONATIONS);
+  const [prayers, setPrayers] = useState<PrayerRequest[]>([]);
+  const [notices] = useState<Notice[]>([]);
+  const [donations, setDonations] = useState<DonationRecord[]>([]);
 
   // Initial attendance
-  const [attendanceMap, setAttendanceMap] = useState<Record<string, boolean>>({
-    p1: true,
-    p2: true,
-    p4: true,
-  });
+  const [attendanceMap, setAttendanceMap] = useState<Record<string, boolean>>({});
 
   // Load from Firestore on mount
   useEffect(() => {
@@ -208,25 +211,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     (e) => e.associationId === currentAssociation.id || e.scope === 'public'
   );
 
-  const [loggedPastor, setLoggedPastor] = useState<Pastor | null>(INITIAL_PASTORS[1]);
+  const [loggedPastor, setLoggedPastor] = useState<Pastor | null>(null);
 
   const currentUserRole: PastorRole = loggedPastor?.role || 'MEMBER';
-  const currentUserIsAdmin: boolean = loggedPastor?.isAdmin ?? isPastorAdmin(currentUserRole);
+  const currentUserIsAdmin: boolean = loggedPastor?.isAdmin ?? (loggedPastor ? isPastorAdmin(currentUserRole) : false);
   const currentUserPermissions: PastorPermissions =
     loggedPastor?.permissions || getDefaultPermissionsForRole(currentUserRole);
 
   const currentUser = {
-    name: loggedPastor?.name || activePastors[0]?.name || 'Pastor K. David Kumar',
+    name: loggedPastor?.name || (isLoggedIn ? 'Pastor' : ''),
     role: currentUserRole,
     isAdmin: currentUserIsAdmin,
     permissions: currentUserPermissions,
-    association: currentAssociation.name,
-    associationId: currentAssociation.id,
-    district: currentAssociation.district,
-    state: currentAssociation.state,
+    association: currentAssociation?.name || '',
+    associationId: currentAssociation?.id || '',
+    district: currentAssociation?.district || '',
+    state: currentAssociation?.state || '',
     country: 'India',
     memberCount: activePastors.length,
-    phone: loggedPastor?.phone || '+91 94401 67890',
+    phone: loggedPastor?.phone || '',
   };
 
   const switchAssociation = (associationId: string) => {
@@ -251,13 +254,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setShowPrototypePicker((prev) => !prev);
   };
 
-  const loginWithPhone = (phoneNumber: string): boolean => {
+  const loginWithPhone = (phoneNumber: string, targetAssociationId?: string): boolean => {
     const cleanInput = phoneNumber.replace(/\D/g, '').slice(-10);
 
     // Look for registered pastor in the dataset
     const matchedPastor = allPastors.find((p) => {
       const cleanPastorPhone = p.phone.replace(/\D/g, '').slice(-10);
-      return cleanPastorPhone === cleanInput;
+      const matchesPhone = cleanPastorPhone === cleanInput;
+      if (targetAssociationId) {
+        return matchesPhone && p.associationId === targetAssociationId;
+      }
+      return matchesPhone;
     });
 
     if (matchedPastor) {
@@ -273,6 +280,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return false;
+  };
+
+  const checkMemberExists = (phoneNumber: string, associationId: string): Pastor | null => {
+    const cleanInput = phoneNumber.replace(/\D/g, '').slice(-10);
+    return (
+      allPastors.find((p) => {
+        const cleanPastorPhone = p.phone.replace(/\D/g, '').slice(-10);
+        return cleanPastorPhone === cleanInput && p.associationId === associationId;
+      }) || null
+    );
   };
 
   const findAssociationByCode = (code: string): Association | null => {
@@ -568,6 +585,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
+    setLoggedPastor(null);
+    setSelectedPastor(null);
     setIsLoggedIn(false);
     setCurrentScreen('login');
   };
@@ -680,13 +699,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         togglePrototypePicker,
         associations,
         currentAssociation,
+        setCurrentAssociation,
         switchAssociation,
         registerAssociation,
         findAssociationByCode,
         currentUser,
         loggedPastor,
+        setLoggedPastor,
         isLoggedIn,
         loginWithPhone,
+        checkMemberExists,
         registerPastor,
         submitJoinRequest,
         logout,
@@ -695,7 +717,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         language,
         setLanguage,
         pastors: activePastors,
-        selectedPastor,
+        selectedPastor: selectedPastor || loggedPastor || activePastors[0] || ({} as Pastor),
         selectPastor,
         events: activeEvents,
         selectedEvent,

@@ -17,62 +17,20 @@ import {
 
 export const FirestoreService = {
   /**
-   * Automatically seed multi-association starter data into Cloud Firestore
-   */
-  async seedMultiAssociationData(): Promise<{ success: boolean; message: string }> {
-    if (!db) {
-      return { success: false, message: 'Database is not initialized' };
-    }
-
-    try {
-      console.log('🌱 Starting multi-association Firestore seeding...');
-
-      // 1. Seed Associations
-      for (const assoc of INITIAL_ASSOCIATIONS) {
-        await setDoc(doc(db, 'associations', assoc.id), assoc, { merge: true });
-      }
-
-      // 2. Seed Pastors
-      for (const pastor of INITIAL_PASTORS) {
-        await setDoc(doc(db, 'pastors', pastor.id), pastor, { merge: true });
-      }
-
-      // 3. Seed Events
-      for (const event of INITIAL_EVENTS) {
-        await setDoc(doc(db, 'events', event.id), event, { merge: true });
-      }
-
-      // 4. Seed Prayers
-      for (const prayer of INITIAL_PRAYERS) {
-        await setDoc(doc(db, 'prayers', prayer.id), prayer, { merge: true });
-      }
-
-      console.log('✅ Multi-association Firestore seeding completed successfully!');
-      return { success: true, message: 'Seeded initial associations and pastors into Firestore!' };
-    } catch (error: unknown) {
-      const err = error as { message?: string };
-      console.error('❌ Firestore seeding error:', err);
-      return { success: false, message: err.message || 'Seeding failed' };
-    }
-  },
-
-  /**
    * Fetch all registered Pastors Associations
    */
   async getAssociations(): Promise<Association[]> {
-    if (!db) return INITIAL_ASSOCIATIONS;
+    if (!db) return [];
 
     try {
       const snap = await getDocs(collection(db, 'associations'));
       if (snap.empty) {
-        // Auto-seed if empty
-        await this.seedMultiAssociationData();
-        return INITIAL_ASSOCIATIONS;
+        return [];
       }
       return snap.docs.map((d) => d.data() as Association);
     } catch (error) {
-      console.warn('⚠️ Falling back to local associations:', error);
-      return INITIAL_ASSOCIATIONS;
+      console.warn('⚠️ Falling back to empty associations:', error);
+      return [];
     }
   },
 

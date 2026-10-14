@@ -32,7 +32,7 @@ export const HomeScreen: React.FC = () => {
           onPress={() => navigateTo('profile')}
         >
           <Text style={styles.avatarText}>
-            {currentUser.name.replace('Pastor ', '').charAt(0)}
+            {currentUser.name ? currentUser.name.replace('Pastor ', '').charAt(0) : 'P'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -131,7 +131,7 @@ export const HomeScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {nextMeeting && (
+      {nextMeeting ? (
         <TouchableOpacity
           style={styles.meetingCard}
           activeOpacity={0.8}
@@ -146,6 +146,10 @@ export const HomeScreen: React.FC = () => {
             </Text>
           </View>
         </TouchableOpacity>
+      ) : (
+        <View style={[styles.meetingCard, { justifyContent: 'center', alignItems: 'center', paddingVertical: 18 }]}>
+          <Text style={{ color: COLORS.muted, fontSize: 13 }}>No upcoming meetings scheduled yet.</Text>
+        </View>
       )}
 
       {/* Latest Notices */}
@@ -153,25 +157,31 @@ export const HomeScreen: React.FC = () => {
         <Text style={styles.sectionTitle}>Latest notices</Text>
       </View>
 
-      {notices.map((notice) => (
-        <View key={notice.id} style={styles.noticeCard}>
-          <View style={styles.noticeMetaRow}>
-            <Tag
-              label={notice.scope === 'public' ? 'PUBLIC' : 'MY ASSOCIATION'}
-              type={notice.scope === 'public' ? 'global' : 'mine'}
-            />
-            <Text style={styles.noticeDate}>{notice.date}</Text>
+      {notices.length > 0 ? (
+        notices.map((notice) => (
+          <View key={notice.id} style={styles.noticeCard}>
+            <View style={styles.noticeMetaRow}>
+              <Tag
+                label={notice.scope === 'public' ? 'PUBLIC' : 'MY ASSOCIATION'}
+                type={notice.scope === 'public' ? 'global' : 'mine'}
+              />
+              <Text style={styles.noticeDate}>{notice.date}</Text>
+            </View>
+            <Text style={styles.noticeTitle}>{notice.title}</Text>
+            <Text style={styles.noticeSummary} numberOfLines={2}>
+              {notice.summary}
+            </Text>
+            <View style={styles.lineBarWrap}>
+              <View style={[styles.lineBar, { width: '85%' }]} />
+              <View style={[styles.lineBar, { width: '55%' }]} />
+            </View>
           </View>
-          <Text style={styles.noticeTitle}>{notice.title}</Text>
-          <Text style={styles.noticeSummary} numberOfLines={2}>
-            {notice.summary}
-          </Text>
-          <View style={styles.lineBarWrap}>
-            <View style={[styles.lineBar, { width: '85%' }]} />
-            <View style={[styles.lineBar, { width: '55%' }]} />
-          </View>
+        ))
+      ) : (
+        <View style={[styles.noticeCard, { justifyContent: 'center', alignItems: 'center', paddingVertical: 18 }]}>
+          <Text style={{ color: COLORS.muted, fontSize: 13 }}>No circulars or notices posted yet.</Text>
         </View>
-      ))}
+      )}
     </ScrollView>
   );
 };

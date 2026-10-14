@@ -32,22 +32,24 @@ export const ProfileScreen: React.FC = () => {
     updatePastorRoleAndPermissions,
   } = useApp();
 
+  const pastor = selectedPastor;
+
   const [showManageModal, setShowManageModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [targetRole, setTargetRole] = useState<PastorRole>(selectedPastor.role);
+  const [targetRole, setTargetRole] = useState<PastorRole>(pastor?.role || 'MEMBER');
   const [targetPermissions, setTargetPermissions] = useState<PastorPermissions>(
-    selectedPastor.permissions || getDefaultPermissionsForRole(selectedPastor.role)
+    pastor?.permissions || getDefaultPermissionsForRole(pastor?.role || 'MEMBER')
   );
 
   const isMyProfile =
-    selectedPastor.phone.replace(/\D/g, '').slice(-10) ===
+    (pastor?.phone?.replace(/\D/g, '').slice(-10) ===
       currentUser.phone.replace(/\D/g, '').slice(-10) ||
-    selectedPastor.name === currentUser.name;
+      pastor?.name === currentUser.name);
 
-  const pastorIsAdmin = isPastorAdmin(selectedPastor.role);
+  const pastorIsAdmin = isPastorAdmin(pastor?.role || 'MEMBER');
   const effectivePermissions =
-    selectedPastor.permissions || getDefaultPermissionsForRole(selectedPastor.role);
+    pastor?.permissions || getDefaultPermissionsForRole(pastor?.role || 'MEMBER');
 
   const handleCall = () => {
     Linking.openURL(`tel:${selectedPastor.phone}`).catch(() => {
