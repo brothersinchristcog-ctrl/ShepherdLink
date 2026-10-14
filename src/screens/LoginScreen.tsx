@@ -675,16 +675,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   contentContainer: {
-    flexGrow: 1,
-    justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 24,
+    paddingTop: 4,
+    paddingBottom: 32,
   },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 6,
     zIndex: 100,
   },
   topBarLeft: {
@@ -755,17 +754,15 @@ const styles = StyleSheet.create({
     zIndex: 50,
   },
   mainBody: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingVertical: 12,
+    marginTop: 4,
   },
   brandBox: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
   },
   brandLogo: {
-    width: 200,
-    height: 120,
+    width: 190,
+    height: 110,
   },
   tagline: {
     fontSize: 15,
@@ -928,7 +925,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingTop: 12,
+    marginTop: 28,
+    paddingBottom: 16,
   },
   securityText: {
     fontSize: 12,
