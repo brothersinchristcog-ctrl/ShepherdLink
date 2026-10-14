@@ -13,9 +13,24 @@ export type TabName = 'home' | 'directory' | 'events' | 'prayer' | 'profile';
 
 export type PastorRole = 'PRESIDENT' | 'SECRETARY' | 'TREASURER' | 'MEMBER';
 
+export interface Association {
+  id: string;
+  name: string;
+  code: string;
+  state: string;
+  district: string;
+  mandal: string;
+  memberCount: number;
+  establishedYear: string;
+  isVerified: boolean;
+  registrationNumber?: string;
+}
+
 export interface Pastor {
   id: string;
   name: string;
+  associationId: string;
+  associationName: string;
   isVerified: boolean;
   churchName: string;
   village: string;
@@ -36,6 +51,7 @@ export type EventScope = 'public' | 'private';
 
 export interface AssociationEvent {
   id: string;
+  associationId: string;
   title: string;
   month: string;
   day: string;
@@ -50,6 +66,7 @@ export interface AssociationEvent {
 
 export interface PrayerRequest {
   id: string;
+  associationId?: string;
   pastorName: string;
   mandal: string;
   timeAgo: string;
@@ -63,6 +80,7 @@ export interface PrayerRequest {
 
 export interface Notice {
   id: string;
+  associationId?: string;
   title: string;
   date: string;
   scope: EventScope;
@@ -71,6 +89,7 @@ export interface Notice {
 
 export interface DonationRecord {
   id: string;
+  associationId?: string;
   date: string;
   purpose: string;
   amount: number;

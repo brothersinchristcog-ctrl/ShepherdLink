@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   ScreenName,
   TabName,
+  Association,
   Pastor,
   AssociationEvent,
   PrayerRequest,
@@ -9,12 +10,14 @@ import {
   DonationRecord,
 } from '../types';
 import {
+  INITIAL_ASSOCIATIONS,
   INITIAL_PASTORS,
   INITIAL_EVENTS,
   INITIAL_PRAYERS,
   INITIAL_NOTICES,
   INITIAL_DONATIONS,
 } from '../data/mockData';
+import { FirestoreService } from '../services/firestoreService';
 
 interface AppContextType {
   // Navigation & screens
@@ -24,11 +27,17 @@ interface AppContextType {
   showPrototypePicker: boolean;
   togglePrototypePicker: () => void;
 
+  // Multi-Association support
+  associations: Association[];
+  currentAssociation: Association;
+  switchAssociation: (associationId: string) => void;
+
   // Current logged in user info
   currentUser: {
     name: string;
     role: string;
     association: string;
+    associationId: string;
     district: string;
     state: string;
     country: string;
@@ -52,7 +61,7 @@ interface AppContextType {
   selectedEvent: AssociationEvent | null;
   selectEventForAttendance: (event: AssociationEvent) => void;
   toggleRSVP: (eventId: string, rsvpType: 'going' | 'maybe') => void;
-  addEvent: (newEvent: Omit<AssociationEvent, 'id' | 'rsvp'>) => void;
+  addEvent: (newEvent: Omit<AssociationEvent, 'id' | 'rsvp' | 'associationId'>) => void;
 
   // Prayers
   prayers: PrayerRequest[];
@@ -92,31 +101,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [showPrototypePicker, setShowPrototypePicker] = useState<boolean>(true);
   const [language, setLanguage] = useState<string>('English');
 
-  const [pastors] = useState<Pastor[]>(INITIAL_PASTORS);
-  const [selectedPastor, setSelectedPastor] = useState<Pastor>(INITIAL_PASTORS[1]); // Default to Pastor David (Secretary)
+  // Multi-Association State
+  const [associations, setAssociations] = useState<Association[]>(INITIAL_ASSOCIATIONS);
+  const [currentAssociation, setCurrentAssociation] = useState<Association>(INITIAL_ASSOCIATIONS[0]);
 
-  const [events, setEvents] = useState<AssociationEvent[]>(INITIAL_EVENTS);
+  const [allPastors] = useState<Pastor[]>(INITIAL_PASTORS);
+  const [selectedPastor, setSelectedPastor] = useState<Pastor>(INITIAL_PASTORS[1]);
+
+  const [allEvents, setAllEvents] = useState<AssociationEvent[]>(INITIAL_EVENTS);
   const [selectedEvent, setSelectedEvent] = useState<AssociationEvent | null>(INITIAL_EVENTS[0]);
 
   const [prayers, setPrayers] = useState<PrayerRequest[]>(INITIAL_PRAYERS);
   const [notices] = useState<Notice[]>(INITIAL_NOTICES);
   const [donations, setDonations] = useState<DonationRecord[]>(INITIAL_DONATIONS);
 
-  // Initial attendance: 0, 1, 3 marked as present in prototype
+  // Initial attendance
   const [attendanceMap, setAttendanceMap] = useState<Record<string, boolean>>({
     p1: true,
     p2: true,
     p4: true,
   });
 
+  // Load from Firestore on mount
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const fetchedAssocs = await FirestoreService.getAssociations();
+        if (fetchedAssocs.length > 0) {
+          setAssociations(fetchedAssocs);
+          setCurrentAssociation(fetchedAssocs[0]);
+        }
+      } catch (err) {
+        console.warn('Using offline data fallback:', err);
+      }
+    }
+    loadData();
+  }, []);
+
+  // Filter pastors strictly for the active association: "One pastor belongs to one association"
+  const activePastors = allPastors.filter((p) => p.associationId === currentAssociation.id);
+
+  // Filter events for this association + public inter-association conventions
+  const activeEvents = allEvents.filter(
+    (e) => e.associationId === currentAssociation.id || e.scope === 'public'
+  );
+
   const currentUser = {
-    name: 'Pastor K. David Kumar',
-    role: 'SECRETARY',
-    association: 'Gannavaram Pastors Association',
-    district: 'Krishna',
-    state: 'Andhra Pradesh',
+    name: activePastors[0]?.name || 'Pastor K. David Kumar',
+    role: activePastors[0]?.role || 'SECRETARY',
+    association: currentAssociation.name,
+    associationId: currentAssociation.id,
+    district: currentAssociation.district,
+    state: currentAssociation.state,
     country: 'India',
-    memberCount: INITIAL_PASTORS.length,
+    memberCount: activePastors.length,
+  };
+
+  const switchAssociation = (associationId: string) => {
+    const found = associations.find((a) => a.id === associationId);
+    if (found) {
+      setCurrentAssociation(found);
+      const pastorsInAssoc = allPastors.filter((p) => p.associationId === found.id);
+      if (pastorsInAssoc.length > 0) {
+        setSelectedPastor(pastorsInAssoc[0]);
+      }
+    }
   };
 
   const navigateTo = (screen: ScreenName) => {
@@ -127,7 +176,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setShowPrototypePicker((prev) => !prev);
   };
 
-  const loginWithPhone = (phoneNumber: string) => {
+  const loginWithPhone = (_phoneNumber: string) => {
     setIsLoggedIn(true);
     setCurrentScreen('home');
   };
@@ -148,7 +197,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleRSVP = (eventId: string, rsvpType: 'going' | 'maybe') => {
-    setEvents((prev) =>
+    setAllEvents((prev) =>
       prev.map((e) => {
         if (e.id === eventId) {
           const nextRsvp = e.rsvp === rsvpType ? null : rsvpType;
@@ -159,13 +208,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const addEvent = (newEventData: Omit<AssociationEvent, 'id' | 'rsvp'>) => {
+  const addEvent = (newEventData: Omit<AssociationEvent, 'id' | 'rsvp' | 'associationId'>) => {
     const newEvent: AssociationEvent = {
       ...newEventData,
       id: `ev-${Date.now()}`,
+      associationId: currentAssociation.id,
       rsvp: 'going',
     };
-    setEvents((prev) => [newEvent, ...prev]);
+    setAllEvents((prev) => [newEvent, ...prev]);
     setCurrentScreen('events');
   };
 
@@ -192,8 +242,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ) => {
     const newPrayer: PrayerRequest = {
       id: `pr-${Date.now()}`,
+      associationId: currentAssociation.id,
       pastorName: currentUser.name,
-      mandal: 'Gannavaram',
+      mandal: currentAssociation.mandal,
       timeAgo: 'Just now',
       tag,
       text,
@@ -214,15 +265,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const markAllAttendance = (present: boolean) => {
     const nextMap: Record<string, boolean> = {};
-    pastors.forEach((p) => {
+    activePastors.forEach((p) => {
       nextMap[p.id] = present;
     });
     setAttendanceMap(nextMap);
   };
 
-  const addDonation = (purpose: string, amount: number, anonymous: boolean) => {
+  const addDonation = (purpose: string, amount: number, _anonymous: boolean) => {
     const newDonation: DonationRecord = {
       id: `dn-${Date.now()}`,
+      associationId: currentAssociation.id,
       date: 'Today',
       purpose,
       amount,
@@ -240,16 +292,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         navigateTo,
         showPrototypePicker,
         togglePrototypePicker,
+        associations,
+        currentAssociation,
+        switchAssociation,
         currentUser,
         isLoggedIn,
         loginWithPhone,
         logout,
         language,
         setLanguage,
-        pastors,
+        pastors: activePastors,
         selectedPastor,
         selectPastor,
-        events,
+        events: activeEvents,
         selectedEvent,
         selectEventForAttendance,
         toggleRSVP,

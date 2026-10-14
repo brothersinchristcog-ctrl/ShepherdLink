@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { ScreenName } from '../types';
 import { COLORS } from '../constants/theme';
@@ -23,14 +23,22 @@ const SCREENS: ScreenOption[] = [
 ];
 
 export const ScreenPicker: React.FC = () => {
-  const { currentScreen, navigateTo, showPrototypePicker, togglePrototypePicker } = useApp();
+  const {
+    currentScreen,
+    navigateTo,
+    showPrototypePicker,
+    togglePrototypePicker,
+    associations,
+    currentAssociation,
+    switchAssociation,
+  } = useApp();
 
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.titleWrap}>
-          <Text style={styles.headerTitle}>ShepherdLink · Clickable Prototype</Text>
-          <Text style={styles.subtext}>Tap through or jump directly to any screen</Text>
+          <Text style={styles.headerTitle}>ShepherdLink · Multi-Association Demo</Text>
+          <Text style={styles.subtext}>One Fold, One Shepherd • Switch associations below</Text>
         </View>
         <TouchableOpacity
           style={styles.toggleBtn}
@@ -46,27 +54,64 @@ export const ScreenPicker: React.FC = () => {
       </View>
 
       {showPrototypePicker && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.scrollList}
-        >
-          {SCREENS.map((s) => {
-            const isActive = currentScreen === s.key;
-            return (
-              <TouchableOpacity
-                key={s.key}
-                activeOpacity={0.7}
-                onPress={() => navigateTo(s.key)}
-                style={[styles.btn, isActive && styles.btnActive]}
-              >
-                <Text style={[styles.btnText, isActive && styles.btnTextActive]}>
-                  {s.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <>
+          {/* Screen Picker Tabs */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.scrollList}
+          >
+            {SCREENS.map((s) => {
+              const isActive = currentScreen === s.key;
+              return (
+                <TouchableOpacity
+                  key={s.key}
+                  activeOpacity={0.7}
+                  onPress={() => navigateTo(s.key)}
+                  style={[styles.btn, isActive && styles.btnActive]}
+                >
+                  <Text style={[styles.btnText, isActive && styles.btnTextActive]}>
+                    {s.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {/* Association Switcher Row */}
+          <View style={styles.assocRow}>
+            <View style={styles.assocLabelWrap}>
+              <FontAwesome5 name="church" size={11} color={COLORS.brandTeal} />
+              <Text style={styles.assocLabel}>Active Association:</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.assocList}
+            >
+              {associations.map((assoc) => {
+                const isSelected = currentAssociation.id === assoc.id;
+                return (
+                  <TouchableOpacity
+                    key={assoc.id}
+                    activeOpacity={0.7}
+                    onPress={() => switchAssociation(assoc.id)}
+                    style={[styles.assocPill, isSelected && styles.assocPillSelected]}
+                  >
+                    <Text
+                      style={[
+                        styles.assocPillText,
+                        isSelected && styles.assocPillTextSelected,
+                      ]}
+                    >
+                      {assoc.name.replace(' Pastors Association', '').replace(' Pastors Fellowship', '').replace(' Pastors Alliance', '')} ({assoc.district})
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </>
       )}
     </View>
   );
@@ -91,9 +136,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: COLORS.ink,
+    color: COLORS.brandNavy,
   },
   subtext: {
     fontSize: 11,
@@ -112,9 +157,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   btn: {
-    height: 34,
-    paddingHorizontal: 12,
-    borderRadius: 17,
+    height: 32,
+    paddingHorizontal: 11,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.field,
     backgroundColor: '#FFFFFF',
@@ -122,8 +167,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   btnActive: {
-    backgroundColor: COLORS.accent,
-    borderColor: COLORS.accent,
+    backgroundColor: COLORS.brandNavy,
+    borderColor: COLORS.brandNavy,
   },
   btnText: {
     fontSize: 12,
@@ -131,6 +176,51 @@ const styles = StyleSheet.create({
     color: COLORS.ink,
   },
   btnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  assocRow: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.line,
+    paddingHorizontal: 16,
+  },
+  assocLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 4,
+  },
+  assocLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  assocList: {
+    gap: 6,
+    flexDirection: 'row',
+  },
+  assocPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.line,
+  },
+  assocPillSelected: {
+    backgroundColor: COLORS.brandTeal,
+    borderColor: COLORS.brandTeal,
+  },
+  assocPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.ink,
+  },
+  assocPillTextSelected: {
     color: '#FFFFFF',
     fontWeight: '700',
   },

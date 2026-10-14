@@ -1,9 +1,58 @@
-import { Pastor, AssociationEvent, PrayerRequest, Notice, DonationRecord } from '../types';
+import {
+  Association,
+  Pastor,
+  AssociationEvent,
+  PrayerRequest,
+  Notice,
+  DonationRecord,
+} from '../types';
+
+export const INITIAL_ASSOCIATIONS: Association[] = [
+  {
+    id: 'gpa-krishna',
+    name: 'Gannavaram Pastors Association',
+    code: 'GPA-521101',
+    state: 'Andhra Pradesh',
+    district: 'Krishna',
+    mandal: 'Gannavaram',
+    memberCount: 6,
+    establishedYear: '2012',
+    isVerified: true,
+    registrationNumber: 'REG-AP-KRI-2012-089',
+  },
+  {
+    id: 'vpf-ntr',
+    name: 'Vijayawada Pastors Fellowship',
+    code: 'VPF-520001',
+    state: 'Andhra Pradesh',
+    district: 'NTR',
+    mandal: 'Vijayawada Urban',
+    memberCount: 4,
+    establishedYear: '2008',
+    isVerified: true,
+    registrationNumber: 'REG-AP-NTR-2008-041',
+  },
+  {
+    id: 'hpa-hyderabad',
+    name: 'Hyderabad Pastors Alliance',
+    code: 'HPA-500003',
+    state: 'Telangana',
+    district: 'Hyderabad',
+    mandal: 'Secunderabad',
+    memberCount: 8,
+    establishedYear: '2015',
+    isVerified: true,
+    registrationNumber: 'REG-TG-HYD-2015-112',
+  },
+];
 
 export const INITIAL_PASTORS: Pastor[] = [
+  // Gannavaram Pastors Association Members
   {
     id: 'p1',
     name: 'Pastor P. Joshua Rao',
+    associationId: 'gpa-krishna',
+    associationName: 'Gannavaram Pastors Association',
     isVerified: true,
     churchName: 'Bethel Gospel Church',
     village: 'Kothapeta',
@@ -21,6 +70,8 @@ export const INITIAL_PASTORS: Pastor[] = [
   {
     id: 'p2',
     name: 'Pastor K. David Kumar',
+    associationId: 'gpa-krishna',
+    associationName: 'Gannavaram Pastors Association',
     isVerified: true,
     churchName: 'Grace Baptist Chapel',
     village: 'Mustabad',
@@ -38,6 +89,8 @@ export const INITIAL_PASTORS: Pastor[] = [
   {
     id: 'p3',
     name: 'Pastor M. Samuel Raju',
+    associationId: 'gpa-krishna',
+    associationName: 'Gannavaram Pastors Association',
     isVerified: true,
     churchName: 'Calvary Prayer House',
     village: 'Savaram',
@@ -55,6 +108,8 @@ export const INITIAL_PASTORS: Pastor[] = [
   {
     id: 'p4',
     name: 'Pastor B. Emmanuel',
+    associationId: 'gpa-krishna',
+    associationName: 'Gannavaram Pastors Association',
     isVerified: true,
     churchName: 'Zion Faith Tabernacle',
     village: 'Veeravalli',
@@ -72,6 +127,8 @@ export const INITIAL_PASTORS: Pastor[] = [
   {
     id: 'p5',
     name: 'Pastor G. Luke Prasad',
+    associationId: 'gpa-krishna',
+    associationName: 'Gannavaram Pastors Association',
     isVerified: false,
     churchName: 'New Hope Fellowship',
     village: 'Pedda Avutapalli',
@@ -89,6 +146,8 @@ export const INITIAL_PASTORS: Pastor[] = [
   {
     id: 'p6',
     name: 'Pastor J. Timothy Paul',
+    associationId: 'gpa-krishna',
+    associationName: 'Gannavaram Pastors Association',
     isVerified: true,
     churchName: 'Sharon Worship Center',
     village: 'Chinna Avutapalli',
@@ -103,24 +162,66 @@ export const INITIAL_PASTORS: Pastor[] = [
     ministry: 'Worship & Music Ministry',
     languages: ['Telugu', 'Hindi'],
   },
+
+  // Vijayawada Pastors Fellowship Members
+  {
+    id: 'v1',
+    name: 'Rev. Dr. M. Abraham',
+    associationId: 'vpf-ntr',
+    associationName: 'Vijayawada Pastors Fellowship',
+    isVerified: true,
+    churchName: 'City Bible Church',
+    village: 'Governorpet',
+    mandal: 'Vijayawada Urban',
+    district: 'NTR',
+    state: 'Andhra Pradesh',
+    role: 'PRESIDENT',
+    phone: '+91 98491 55667',
+    churchAddress: 'MG Road, Governorpet, Vijayawada',
+    denomination: 'Independent Christian Fellowship',
+    ordainedYear: '1998',
+    ministry: 'City Evangelism & Pastoral Council',
+    languages: ['Telugu', 'English'],
+  },
+  {
+    id: 'v2',
+    name: 'Pastor Paul Victor',
+    associationId: 'vpf-ntr',
+    associationName: 'Vijayawada Pastors Fellowship',
+    isVerified: true,
+    churchName: 'Life Spring Assemblies',
+    village: 'Benz Circle',
+    mandal: 'Vijayawada Urban',
+    district: 'NTR',
+    state: 'Andhra Pradesh',
+    role: 'SECRETARY',
+    phone: '+91 94402 77889',
+    churchAddress: 'Ring Road, Benz Circle, Vijayawada',
+    denomination: 'Assemblies of God',
+    ordainedYear: '2009',
+    ministry: 'Media Ministry & Pastoral Care',
+    languages: ['Telugu', 'English', 'Tamil'],
+  },
 ];
 
 export const INITIAL_EVENTS: AssociationEvent[] = [
   {
     id: 'ev-1',
+    associationId: 'gpa-krishna',
     title: 'Monthly Association Meeting',
     month: 'NOV',
     day: '18',
     time: '10:00 AM – 1:30 PM',
     venue: 'Grace Baptist Chapel, Mustabad',
     scope: 'private',
-    byAssociation: 'Gannavaram Pastors Association (yours)',
+    byAssociation: 'Gannavaram Pastors Association',
     isMyAssociation: true,
     trackAttendance: true,
     rsvp: 'going',
   },
   {
     id: 'ev-2',
+    associationId: 'vpf-ntr',
     title: 'Christmas Unity Gathering',
     month: 'DEC',
     day: '12',
@@ -134,26 +235,28 @@ export const INITIAL_EVENTS: AssociationEvent[] = [
   },
   {
     id: 'ev-3',
+    associationId: 'gpa-krishna',
     title: 'Fasting Prayer & Intercession Day',
     month: 'NOV',
     day: '28',
     time: '9:30 AM – 3:00 PM',
     venue: 'Bethel Gospel Church, Kothapeta',
     scope: 'private',
-    byAssociation: 'Gannavaram Pastors Association (yours)',
+    byAssociation: 'Gannavaram Pastors Association',
     isMyAssociation: true,
     trackAttendance: true,
     rsvp: 'maybe',
   },
   {
     id: 'ev-4',
+    associationId: 'gpa-krishna',
     title: 'Pastors Leadership & Biblical Counseling Training',
     month: 'DEC',
     day: '05',
     time: '9:00 AM – 4:30 PM',
     venue: 'Zion Faith Tabernacle, Veeravalli',
     scope: 'public',
-    byAssociation: 'Gannavaram Pastors Association (yours)',
+    byAssociation: 'Gannavaram Pastors Association',
     isMyAssociation: true,
     trackAttendance: false,
     rsvp: null,
@@ -163,6 +266,7 @@ export const INITIAL_EVENTS: AssociationEvent[] = [
 export const INITIAL_PRAYERS: PrayerRequest[] = [
   {
     id: 'pr-1',
+    associationId: 'gpa-krishna',
     pastorName: 'Pastor B. Emmanuel',
     mandal: 'Gannavaram',
     timeAgo: '2 hrs ago',
@@ -175,6 +279,7 @@ export const INITIAL_PRAYERS: PrayerRequest[] = [
   },
   {
     id: 'pr-2',
+    associationId: 'gpa-krishna',
     pastorName: 'Pastor K. David Kumar',
     mandal: 'Gannavaram',
     timeAgo: '5 hrs ago',
@@ -187,6 +292,7 @@ export const INITIAL_PRAYERS: PrayerRequest[] = [
   },
   {
     id: 'pr-3',
+    associationId: 'vpf-ntr',
     pastorName: 'Pastor M. Samuel Raju',
     mandal: 'Regional Network',
     timeAgo: '1 day ago',
@@ -209,6 +315,7 @@ export const INITIAL_NOTICES: Notice[] = [
   },
   {
     id: 'nt-2',
+    associationId: 'gpa-krishna',
     title: 'Notice regarding upcoming Joint Thanksgiving & Christmas Carols schedule',
     date: '12 Oct 2026',
     scope: 'private',
@@ -219,6 +326,7 @@ export const INITIAL_NOTICES: Notice[] = [
 export const INITIAL_DONATIONS: DonationRecord[] = [
   {
     id: 'dn-1',
+    associationId: 'gpa-krishna',
     date: '02 Oct 2026',
     purpose: 'Association fund',
     amount: 1000,
@@ -227,6 +335,7 @@ export const INITIAL_DONATIONS: DonationRecord[] = [
   },
   {
     id: 'dn-2',
+    associationId: 'gpa-krishna',
     date: '15 Sep 2026',
     purpose: 'Pastor welfare',
     amount: 2000,
