@@ -42,7 +42,9 @@ interface AppContextType {
     state: string;
     country: string;
     memberCount: number;
+    phone: string;
   };
+  loggedPastor: Pastor | null;
   isLoggedIn: boolean;
   loginWithPhone: (phoneNumber: string) => void;
   logout: () => void;
@@ -87,7 +89,7 @@ const TAB_MAP: Record<ScreenName, TabName> = {
   login: 'home',
   home: 'home',
   directory: 'directory',
-  profile: 'directory',
+  profile: 'profile',
   events: 'events',
   create: 'events',
   attendance: 'events',
@@ -146,15 +148,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     (e) => e.associationId === currentAssociation.id || e.scope === 'public'
   );
 
+  const [loggedPastor, setLoggedPastor] = useState<Pastor | null>(INITIAL_PASTORS[1]);
+
   const currentUser = {
-    name: activePastors[0]?.name || 'Pastor K. David Kumar',
-    role: activePastors[0]?.role || 'SECRETARY',
+    name: loggedPastor?.name || activePastors[0]?.name || 'Pastor K. David Kumar',
+    role: loggedPastor?.role || 'MEMBER',
     association: currentAssociation.name,
     associationId: currentAssociation.id,
     district: currentAssociation.district,
     state: currentAssociation.state,
     country: 'India',
     memberCount: activePastors.length,
+    phone: loggedPastor?.phone || '+91 94401 67890',
   };
 
   const switchAssociation = (associationId: string) => {
@@ -169,6 +174,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const navigateTo = (screen: ScreenName) => {
+    if (screen === 'profile' && loggedPastor) {
+      setSelectedPastor(loggedPastor);
+    }
     setCurrentScreen(screen);
   };
 
@@ -176,7 +184,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setShowPrototypePicker((prev) => !prev);
   };
 
-  const loginWithPhone = (_phoneNumber: string) => {
+  const loginWithPhone = (phoneNumber: string) => {
+    const cleanInput = phoneNumber.replace(/\D/g, '').slice(-10);
+
+    // Look for registered pastor in the dataset
+    const matchedPastor = allPastors.find((p) => {
+      const cleanPastorPhone = p.phone.replace(/\D/g, '').slice(-10);
+      return cleanPastorPhone === cleanInput;
+    });
+
+    if (matchedPastor) {
+      setLoggedPastor(matchedPastor);
+      const assoc = associations.find((a) => a.id === matchedPastor.associationId);
+      if (assoc) {
+        setCurrentAssociation(assoc);
+      }
+      setSelectedPastor(matchedPastor);
+    } else {
+      // Dynamic profile for new/guest pastors
+      const newPastor: Pastor = {
+        id: `p-${Date.now()}`,
+        name: `Pastor (${cleanInput.slice(-4)})`,
+        associationId: currentAssociation.id,
+        associationName: currentAssociation.name,
+        isVerified: true,
+        churchName: 'Faith Fellowship Church',
+        village: currentAssociation.mandal,
+        mandal: currentAssociation.mandal,
+        district: currentAssociation.district,
+        state: currentAssociation.state,
+        role: 'MEMBER',
+        phone: `+91 ${cleanInput}`,
+        churchAddress: `Main Road, ${currentAssociation.mandal}`,
+        denomination: 'Independent',
+        ordainedYear: '2021',
+        ministry: 'Pastoral & Evangelism',
+        languages: ['Telugu', 'English'],
+      };
+      setLoggedPastor(newPastor);
+      setSelectedPastor(newPastor);
+    }
+
     setIsLoggedIn(true);
     setCurrentScreen('home');
   };
@@ -296,6 +344,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentAssociation,
         switchAssociation,
         currentUser,
+        loggedPastor,
         isLoggedIn,
         loginWithPhone,
         logout,

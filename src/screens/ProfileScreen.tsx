@@ -15,7 +15,11 @@ import { Tag } from '../components/Tag';
 import { COLORS } from '../constants/theme';
 
 export const ProfileScreen: React.FC = () => {
-  const { selectedPastor, navigateTo } = useApp();
+  const { selectedPastor, navigateTo, logout, currentUser } = useApp();
+
+  const isMyProfile =
+    selectedPastor.phone.replace(/\D/g, '').slice(-10) === currentUser.phone.replace(/\D/g, '').slice(-10) ||
+    selectedPastor.name === currentUser.name;
 
   const handleCall = () => {
     Linking.openURL(`tel:${selectedPastor.phone}`).catch(() => {
@@ -36,31 +40,59 @@ export const ProfileScreen: React.FC = () => {
     });
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Sign Out',
+      `Sign out of ShepherdLink (${currentUser.name})?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: logout,
+        },
+      ]
+    );
+  };
+
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
     >
-      {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backBtn}
-        activeOpacity={0.7}
-        onPress={() => navigateTo('directory')}
-      >
-        <Feather name="chevron-left" size={24} color={COLORS.ink} />
-      </TouchableOpacity>
+      {/* Top Header Row with Back and Logout */}
+      <View style={styles.topNavRow}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          activeOpacity={0.7}
+          onPress={() => navigateTo(isMyProfile ? 'home' : 'directory')}
+        >
+          <Feather name="chevron-left" size={24} color={COLORS.ink} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.logoutHeaderBtn}
+          activeOpacity={0.7}
+          onPress={handleLogout}
+        >
+          <Feather name="log-out" size={16} color={COLORS.danger} />
+          <Text style={styles.logoutHeaderText}>Log Out</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Header Profile Info */}
       <View style={styles.profileHeader}>
         <View style={styles.largeAvatar}>
-          <Text style={styles.avatarLabel}>[PHOTO]</Text>
+          <Text style={styles.avatarLabel}>
+            {selectedPastor.name.replace('Pastor ', '').replace('Rev. Dr. ', '').charAt(0)}
+          </Text>
         </View>
 
         <View style={styles.nameRow}>
           <Text style={styles.name}>{selectedPastor.name}</Text>
           {selectedPastor.isVerified && (
-            <Ionicons name="checkmark-circle" size={22} color={COLORS.accent} />
+            <Ionicons name="checkmark-circle" size={22} color={COLORS.brandTeal} />
           )}
         </View>
 
@@ -97,7 +129,12 @@ export const ProfileScreen: React.FC = () => {
       <View style={styles.detailsCard}>
         <View style={styles.detailRow}>
           <Text style={styles.detailKey}>Association</Text>
-          <Text style={styles.detailValue}>{selectedPastor.mandal} Pastors Association</Text>
+          <Text style={styles.detailValue}>{selectedPastor.associationName || `${selectedPastor.mandal} Pastors Association`}</Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.detailKey}>Mobile Phone</Text>
+          <Text style={styles.detailValue}>{selectedPastor.phone}</Text>
         </View>
 
         <View style={styles.detailRow}>
@@ -132,6 +169,16 @@ export const ProfileScreen: React.FC = () => {
         icon="lock"
         text="Phone number and address are visible only to verified members of the same association."
       />
+
+      {/* Full Logout Button at Bottom of Profile */}
+      <TouchableOpacity
+        style={styles.logoutFullBtn}
+        onPress={handleLogout}
+        activeOpacity={0.8}
+      >
+        <Feather name="log-out" size={18} color={COLORS.danger} />
+        <Text style={styles.logoutFullBtnText}>Sign Out of Account</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 };
@@ -144,8 +191,13 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 28,
+    paddingBottom: 36,
     gap: 16,
+  },
+  topNavRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   backBtn: {
     width: 44,
@@ -153,26 +205,42 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.line,
+  },
+  logoutHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#FDE8E8',
+  },
+  logoutHeaderText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.danger,
   },
   profileHeader: {
     alignItems: 'center',
     gap: 8,
   },
   largeAvatar: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    backgroundColor: COLORS.avatar,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: COLORS.brandNavySoft,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.brandTeal,
   },
   avatarLabel: {
-    fontFamily: 'System',
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.muted,
-    letterSpacing: 1,
+    fontSize: 34,
+    fontWeight: '800',
+    color: COLORS.brandNavy,
   },
   nameRow: {
     flexDirection: 'row',
@@ -196,9 +264,9 @@ const styles = StyleSheet.create({
   },
   actionBtnPrimary: {
     flex: 1,
-    height: 64,
+    height: 56,
     borderRadius: 14,
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.brandNavy,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
@@ -210,7 +278,7 @@ const styles = StyleSheet.create({
   },
   actionBtnPlain: {
     flex: 1,
-    height: 64,
+    height: 56,
     borderRadius: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -251,5 +319,22 @@ const styles = StyleSheet.create({
     color: COLORS.ink,
     textAlign: 'right',
     flex: 1.5,
+  },
+  logoutFullBtn: {
+    marginTop: 8,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#F8B4B4',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  logoutFullBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.danger,
   },
 });

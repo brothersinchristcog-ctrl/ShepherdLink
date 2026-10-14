@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Feather, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
@@ -13,7 +14,7 @@ import { Tag } from '../components/Tag';
 import { COLORS } from '../constants/theme';
 
 export const HomeScreen: React.FC = () => {
-  const { currentUser, navigateTo, events, notices } = useApp();
+  const { currentUser, navigateTo, events, notices, logout } = useApp();
 
   const nextMeeting = events.find((e) => e.isMyAssociation) || events[0];
 
@@ -25,22 +26,44 @@ export const HomeScreen: React.FC = () => {
     >
       {/* Header Row */}
       <View style={styles.headerRow}>
-        <View style={styles.avatar}>
+        <TouchableOpacity
+          style={styles.avatar}
+          activeOpacity={0.8}
+          onPress={() => navigateTo('profile')}
+        >
           <Text style={styles.avatarText}>
             {currentUser.name.replace('Pastor ', '').charAt(0)}
           </Text>
-        </View>
-        <View style={styles.headerInfo}>
-          <Text style={styles.greeting}>Good evening,</Text>
-          <Text style={styles.pastorName}>{currentUser.name}</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          activeOpacity={0.7}
-          onPress={() => alert('Notifications: All association circulars are up to date.')}
-        >
-          <Feather name="bell" size={20} color={COLORS.ink} />
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.headerInfo}
+          activeOpacity={0.8}
+          onPress={() => navigateTo('profile')}
+        >
+          <Text style={styles.greeting}>Good evening,</Text>
+          <Text style={styles.pastorName} numberOfLines={1}>{currentUser.name}</Text>
+        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            activeOpacity={0.7}
+            onPress={() => Alert.alert('Notifications', 'All association circulars and notices are up to date.')}
+          >
+            <Feather name="bell" size={20} color={COLORS.ink} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconBtn, styles.logoutBtn]}
+            activeOpacity={0.7}
+            onPress={() => {
+              Alert.alert('Sign Out', `Are you sure you want to log out from ${currentUser.name}?`, [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Log Out', style: 'destructive', onPress: logout },
+              ]);
+            }}
+          >
+            <Feather name="log-out" size={18} color="#DC2626" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Featured Association Card */}
@@ -194,6 +217,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.ink,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   iconBtn: {
     width: 44,
     height: 44,
@@ -203,6 +231,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  logoutBtn: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
   },
   associationCard: {
     backgroundColor: COLORS.accent,
