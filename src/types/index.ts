@@ -75,9 +75,11 @@ export interface Association {
   id: string;
   name: string;
   code: string;
+  country?: string;
   state: string;
   district: string;
   mandal: string;
+  village?: string;
   memberCount: number;
   establishedYear: string;
   isVerified: boolean;

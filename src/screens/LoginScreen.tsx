@@ -18,6 +18,13 @@ import { useApp } from '../context/AppContext';
 import { COLORS } from '../constants/theme';
 import { Association } from '../types';
 import { FirestoreService } from '../services/firestoreService';
+import {
+  NATIONALITY_OPTIONS,
+  STATE_OPTIONS,
+  DISTRICTS_BY_STATE,
+  MANDALS_BY_DISTRICT,
+  VILLAGES_BY_MANDAL,
+} from '../data/locationData';
 
 const AVAILABLE_LANGUAGES = [
   { code: 'en', label: 'English', native: 'English' },
@@ -37,6 +44,28 @@ const DENOMINATIONS = [
 ];
 
 type FlowStep = 'LANDING' | 'PHONE' | 'OTP' | 'SIGNUP' | 'REGISTER_ASSOC';
+type DropdownFieldType = 'country' | 'state' | 'district' | 'mandal' | 'village';
+
+interface DropdownModalState {
+  visible: boolean;
+  field: DropdownFieldType;
+  title: string;
+}
+
+const generateCodeFromName = (name: string): string => {
+  const clean = name.trim();
+  const words = clean.split(/\s+/).filter(Boolean);
+  let prefix = '';
+  if (words.length >= 2) {
+    prefix = words.map((w) => w[0].toUpperCase()).slice(0, 5).join('');
+  } else if (words.length === 1 && words[0].length >= 3) {
+    prefix = words[0].slice(0, 4).toUpperCase();
+  } else {
+    prefix = 'ASSOC';
+  }
+  const randomNum = Math.floor(100 + Math.random() * 900);
+  return `${prefix}${randomNum}`;
+};
 
 export const LoginScreen: React.FC = () => {
   const {
@@ -78,15 +107,157 @@ export const LoginScreen: React.FC = () => {
   // Register Association Form (Section 3)
   const [assocRegForm, setAssocRegForm] = useState({
     name: '',
-    code: '',
+    code: generateCodeFromName('ASSOC'),
+    country: 'India',
     state: 'Andhra Pradesh',
-    district: '',
-    mandal: '',
+    district: 'Krishna',
+    mandal: 'Gannavaram',
+    village: 'Gannavaram Town',
     leaderName: '',
     leaderPhone: '',
     establishedYear: new Date().getFullYear().toString(),
   });
   const [registeringAssoc, setRegisteringAssoc] = useState(false);
+
+  // Location Dropdown Picker State
+  const [dropdownModal, setDropdownModal] = useState<DropdownModalState>({
+    visible: false,
+    field: 'country',
+    title: '',
+  });
+  const [dropdownSearch, setDropdownSearch] = useState('');
+  const [customInputValue, setCustomInputValue] = useState('');
+
+  const handleAssocNameChange = (text: string) => {
+    const autoCode = text.trim().length >= 2 ? generateCodeFromName(text) : assocRegForm.code;
+    setAssocRegForm((prev) => ({
+      ...prev,
+      name: text,
+      code: autoCode,
+    }));
+  };
+
+  const handleRegenerateCode = () => {
+    const newCode = generateCodeFromName(assocRegForm.name || 'ASSOC');
+    setAssocRegForm((prev) => ({
+      ...prev,
+      code: newCode,
+    }));
+  };
+
+  const openDropdown = (field: DropdownFieldType) => {
+    setDropdownSearch('');
+    setCustomInputValue('');
+    const titles: Record<DropdownFieldType, string> = {
+      country: 'Select Nationality / Country',
+      state: 'Select State',
+      district: 'Select District',
+      mandal: 'Select Mandal / Taluk',
+      village: 'Select Village / Town',
+    };
+    setDropdownModal({
+      visible: true,
+      field,
+      title: titles[field],
+    });
+  };
+
+  const getDropdownOptions = (field: DropdownFieldType): string[] => {
+    switch (field) {
+      case 'country':
+        return NATIONALITY_OPTIONS;
+      case 'state':
+        return STATE_OPTIONS;
+      case 'district':
+        return (
+          DISTRICTS_BY_STATE[assocRegForm.state] || [
+            'Central District',
+            'North District',
+            'South District',
+            'East District',
+            'West District',
+            'Other District',
+          ]
+        );
+      case 'mandal':
+        return (
+          MANDALS_BY_DISTRICT[assocRegForm.district] || [
+            'Central Mandal',
+            'Rural Mandal',
+            'Town Mandal',
+            'North Mandal',
+            'South Mandal',
+            'Other Mandal',
+          ]
+        );
+      case 'village':
+        return (
+          VILLAGES_BY_MANDAL[assocRegForm.mandal] || [
+            'Main Town',
+            'Station Road',
+            'Old Village',
+            'New Colony',
+            'Bazaar Area',
+            'Other Village',
+          ]
+        );
+    }
+  };
+
+  const handleSelectDropdownValue = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+
+    setAssocRegForm((prev) => {
+      switch (dropdownModal.field) {
+        case 'country':
+          return { ...prev, country: trimmed };
+        case 'state': {
+          const nextDistricts = DISTRICTS_BY_STATE[trimmed] || [];
+          const nextDistrict = nextDistricts[0] || '';
+          const nextMandals = nextDistrict ? MANDALS_BY_DISTRICT[nextDistrict] || [] : [];
+          const nextMandal = nextMandals[0] || '';
+          const nextVillages = nextMandal ? VILLAGES_BY_MANDAL[nextMandal] || [] : [];
+          const nextVillage = nextVillages[0] || '';
+          return {
+            ...prev,
+            state: trimmed,
+            district: nextDistrict,
+            mandal: nextMandal,
+            village: nextVillage,
+          };
+        }
+        case 'district': {
+          const nextMandals = MANDALS_BY_DISTRICT[trimmed] || [];
+          const nextMandal = nextMandals[0] || '';
+          const nextVillages = nextMandal ? VILLAGES_BY_MANDAL[nextMandal] || [] : [];
+          const nextVillage = nextVillages[0] || '';
+          return {
+            ...prev,
+            district: trimmed,
+            mandal: nextMandal,
+            village: nextVillage,
+          };
+        }
+        case 'mandal': {
+          const nextVillages = VILLAGES_BY_MANDAL[trimmed] || [];
+          const nextVillage = nextVillages[0] || '';
+          return {
+            ...prev,
+            mandal: trimmed,
+            village: nextVillage,
+          };
+        }
+        case 'village':
+          return {
+            ...prev,
+            village: trimmed,
+          };
+      }
+    });
+
+    setDropdownModal((prev) => ({ ...prev, visible: false }));
+  };
 
   // Created association code modal for sharing
   const [createdCodeInfo, setCreatedCodeInfo] = useState<{
@@ -339,9 +510,11 @@ export const LoginScreen: React.FC = () => {
       const newAssoc = await registerAssociation({
         name: assocRegForm.name.trim(),
         code: assocRegForm.code.trim() || undefined,
+        country: assocRegForm.country.trim() || 'India',
         state: assocRegForm.state.trim() || 'Andhra Pradesh',
         district: assocRegForm.district.trim(),
         mandal: assocRegForm.mandal.trim() || assocRegForm.district.trim(),
+        village: assocRegForm.village.trim() || '',
         leaderName: assocRegForm.leaderName.trim(),
         leaderPhone: cleanLeaderPhone.slice(-10),
         establishedYear: assocRegForm.establishedYear.trim(),
@@ -450,17 +623,19 @@ export const LoginScreen: React.FC = () => {
         </TouchableWithoutFeedback>
       )}
 
-      {/* Brand Logo Presentation */}
-      <View style={styles.brandBox}>
-        <View style={styles.logoBadge}>
-          <Image
-            source={require('../../assets/logo.png')}
-            style={styles.brandLogo}
-            resizeMode="contain"
-          />
+      {/* Brand Logo Presentation - Hidden on Register Association page */}
+      {step !== 'REGISTER_ASSOC' && (
+        <View style={styles.brandBox}>
+          <View style={styles.logoBadge}>
+            <Image
+              source={require('../../assets/logo.png')}
+              style={styles.brandLogo}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.tagline}>One Fold, One Shepherd</Text>
         </View>
-        <Text style={styles.tagline}>One Fold, One Shepherd</Text>
-      </View>
+      )}
 
       {/* ========================================================= */}
       {/* 1. LANDING: JOIN ASSOCIATION OR REGISTER ASSOCIATION       */}
@@ -474,12 +649,7 @@ export const LoginScreen: React.FC = () => {
                 <Ionicons name="key" size={24} color="#FFFFFF" />
               </View>
               <View style={{ flex: 1 }}>
-                <View style={styles.cardTitleBadgeRow}>
-                  <Text style={styles.cardHeading}>Join Your Association</Text>
-                  <View style={styles.pillMembers}>
-                    <Text style={styles.pillMembersText}>MEMBER</Text>
-                  </View>
-                </View>
+                <Text style={styles.cardHeading}>Join Your Association</Text>
                 <Text style={styles.cardSubtitle}>
                   Enter the code provided by your fellowship leadership.
                 </Text>
@@ -562,12 +732,7 @@ export const LoginScreen: React.FC = () => {
                 <Ionicons name="business" size={24} color="#FBBF24" />
               </View>
               <View style={{ flex: 1 }}>
-                <View style={styles.cardTitleBadgeRow}>
-                  <Text style={styles.cardHeading}>Register Your Association</Text>
-                  <View style={styles.pillLeaders}>
-                    <Text style={styles.pillLeadersText}>ADMIN</Text>
-                  </View>
-                </View>
+                <Text style={styles.cardHeading}>Register Your Association</Text>
                 <Text style={styles.cardSubtitle}>
                   Create a new association for your pastors fellowship.
                 </Text>
@@ -866,29 +1031,36 @@ export const LoginScreen: React.FC = () => {
                 placeholder="e.g. UKUPS Pastors Association"
                 placeholderTextColor="#94A3B8"
                 value={assocRegForm.name}
-                onChangeText={(text) => {
-                  setAssocRegForm((prev) => ({
-                    ...prev,
-                    name: text,
-                    code: prev.code ? prev.code : text.replace(/[^A-Za-z]/g, '').slice(0, 6).toUpperCase(),
-                  }));
-                }}
+                onChangeText={handleAssocNameChange}
               />
             </View>
 
-            {/* Preferred Association Code */}
+            {/* Association Code - System Generated (Read-only) */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Association Code (Members will use this to join) *</Text>
-              <TextInput
-                style={styles.standardInput}
-                placeholder="e.g. UKUPS"
-                placeholderTextColor="#94A3B8"
-                autoCapitalize="characters"
-                value={assocRegForm.code}
-                onChangeText={(text) =>
-                  setAssocRegForm((prev) => ({ ...prev, code: text.toUpperCase() }))
-                }
-              />
+              <View style={styles.labelBadgeRow}>
+                <Text style={styles.inputLabel}>Association Code</Text>
+                <View style={styles.systemGenBadge}>
+                  <Ionicons name="sparkles" size={11} color="#0284C7" />
+                  <Text style={styles.systemGenBadgeText}>Auto-generated by System</Text>
+                </View>
+              </View>
+              <View style={styles.generatedCodeCard}>
+                <View style={styles.codeIconWrap}>
+                  <Ionicons name="key" size={18} color={COLORS.brandTeal} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.generatedCodeValue}>{assocRegForm.code}</Text>
+                  <Text style={styles.generatedCodeSub}>Members will use this code to join</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.regenerateBtn}
+                  onPress={handleRegenerateCode}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="refresh-cw" size={13} color={COLORS.brandNavy} />
+                  <Text style={styles.regenerateBtnText}>Change</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Founding President Full Name */}
@@ -921,46 +1093,84 @@ export const LoginScreen: React.FC = () => {
               />
             </View>
 
-            {/* District */}
+            {/* 1. Nationality Dropdown */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nationality / Country *</Text>
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() => openDropdown('country')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="flag-outline" size={18} color={COLORS.brandTeal} />
+                <Text style={styles.dropdownTriggerText}>
+                  {assocRegForm.country || 'Select Country'}
+                </Text>
+                <Feather name="chevron-down" size={18} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            {/* 2. State Dropdown */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>State *</Text>
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() => openDropdown('state')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="map-outline" size={18} color={COLORS.brandTeal} />
+                <Text style={styles.dropdownTriggerText}>
+                  {assocRegForm.state || 'Select State'}
+                </Text>
+                <Feather name="chevron-down" size={18} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            {/* 3. District Dropdown */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>District *</Text>
-              <TextInput
-                style={styles.standardInput}
-                placeholder="e.g. Belagavi / Krishna"
-                placeholderTextColor="#94A3B8"
-                value={assocRegForm.district}
-                onChangeText={(text) =>
-                  setAssocRegForm((prev) => ({ ...prev, district: text }))
-                }
-              />
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() => openDropdown('district')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="location-outline" size={18} color={COLORS.brandTeal} />
+                <Text style={styles.dropdownTriggerText}>
+                  {assocRegForm.district || 'Select District'}
+                </Text>
+                <Feather name="chevron-down" size={18} color="#94A3B8" />
+              </TouchableOpacity>
             </View>
 
-            {/* Mandal / Taluk */}
+            {/* 4. Mandal / Taluk Dropdown */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Mandal / Taluk / City</Text>
-              <TextInput
-                style={styles.standardInput}
-                placeholder="e.g. Gokak / Gannavaram"
-                placeholderTextColor="#94A3B8"
-                value={assocRegForm.mandal}
-                onChangeText={(text) =>
-                  setAssocRegForm((prev) => ({ ...prev, mandal: text }))
-                }
-              />
+              <Text style={styles.inputLabel}>Mandal / Taluk *</Text>
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() => openDropdown('mandal')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="trail-sign-outline" size={18} color={COLORS.brandTeal} />
+                <Text style={styles.dropdownTriggerText}>
+                  {assocRegForm.mandal || 'Select Mandal'}
+                </Text>
+                <Feather name="chevron-down" size={18} color="#94A3B8" />
+              </TouchableOpacity>
             </View>
 
-            {/* State */}
+            {/* 5. Village / Town Dropdown */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>State</Text>
-              <TextInput
-                style={styles.standardInput}
-                placeholder="e.g. Karnataka / Andhra Pradesh"
-                placeholderTextColor="#94A3B8"
-                value={assocRegForm.state}
-                onChangeText={(text) =>
-                  setAssocRegForm((prev) => ({ ...prev, state: text }))
-                }
-              />
+              <Text style={styles.inputLabel}>Village / Town *</Text>
+              <TouchableOpacity
+                style={styles.dropdownTrigger}
+                onPress={() => openDropdown('village')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="home-outline" size={18} color={COLORS.brandTeal} />
+                <Text style={styles.dropdownTriggerText}>
+                  {assocRegForm.village || 'Select Village'}
+                </Text>
+                <Feather name="chevron-down" size={18} color="#94A3B8" />
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
@@ -983,11 +1193,6 @@ export const LoginScreen: React.FC = () => {
           </View>
         </View>
       )}
-
-      {/* Powered by Footer */}
-      <View style={styles.poweredByFooter}>
-        <Text style={styles.poweredBySingleLine}>Powered by Covenant Synergy Pvt Ltd</Text>
-      </View>
 
       {/* ========================================================= */}
       {/* MODAL: ASSOCIATION CREATED CODE POPUP                      */}
@@ -1090,6 +1295,126 @@ export const LoginScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
+
+      {/* ========================================================= */}
+      {/* MODAL: LOCATION DROPDOWN PICKER (NATIONALITY, STATE, ETC)  */}
+      {/* ========================================================= */}
+      <Modal
+        visible={dropdownModal.visible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDropdownModal((prev) => ({ ...prev, visible: false }))}
+      >
+        <TouchableWithoutFeedback
+          onPress={() => setDropdownModal((prev) => ({ ...prev, visible: false }))}
+        >
+          <View style={styles.dropdownModalBackdrop}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={styles.dropdownModalContent}>
+                {/* Modal Header */}
+                <View style={styles.dropdownModalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.dropdownModalTitle}>{dropdownModal.title}</Text>
+                    <Text style={styles.dropdownModalSubtitle}>
+                      Tap an option or search to select
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setDropdownModal((prev) => ({ ...prev, visible: false }))}
+                    style={styles.dropdownCloseBtn}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Feather name="x" size={20} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Search Bar */}
+                <View style={styles.dropdownSearchBar}>
+                  <Feather name="search" size={16} color="#94A3B8" />
+                  <TextInput
+                    style={styles.dropdownSearchInput}
+                    placeholder="Search options..."
+                    placeholderTextColor="#94A3B8"
+                    value={dropdownSearch}
+                    onChangeText={setDropdownSearch}
+                    autoCorrect={false}
+                  />
+                  {dropdownSearch.length > 0 && (
+                    <TouchableOpacity onPress={() => setDropdownSearch('')}>
+                      <Feather name="x-circle" size={16} color="#94A3B8" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Options List */}
+                <ScrollView
+                  style={styles.dropdownScrollList}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={true}
+                >
+                  {getDropdownOptions(dropdownModal.field)
+                    .filter((opt) =>
+                      opt.toLowerCase().includes(dropdownSearch.trim().toLowerCase())
+                    )
+                    .map((option) => {
+                      const isSelected =
+                        assocRegForm[dropdownModal.field]?.toLowerCase() === option.toLowerCase();
+                      return (
+                        <TouchableOpacity
+                          key={option}
+                          style={[
+                            styles.dropdownOptionRow,
+                            isSelected && styles.dropdownOptionRowActive,
+                          ]}
+                          onPress={() => handleSelectDropdownValue(option)}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownOptionText,
+                              isSelected && styles.dropdownOptionTextActive,
+                            ]}
+                          >
+                            {option}
+                          </Text>
+                          {isSelected && (
+                            <Feather name="check" size={16} color={COLORS.brandTeal} />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+
+                  {/* Custom Option Box */}
+                  <View style={styles.customOptionBox}>
+                    <Text style={styles.customOptionLabel}>
+                      Not in the list? Enter custom {dropdownModal.field}:
+                    </Text>
+                    <View style={styles.customInputRow}>
+                      <TextInput
+                        style={styles.customInput}
+                        placeholder={`Enter ${dropdownModal.field} name`}
+                        placeholderTextColor="#94A3B8"
+                        value={customInputValue}
+                        onChangeText={setCustomInputValue}
+                      />
+                      <TouchableOpacity
+                        style={[
+                          styles.customApplyBtn,
+                          !customInputValue.trim() && styles.customApplyBtnDisabled,
+                        ]}
+                        disabled={!customInputValue.trim()}
+                        onPress={() => handleSelectDropdownValue(customInputValue)}
+                      >
+                        <Text style={styles.customApplyBtnText}>Use</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </ScrollView>
   );
@@ -1826,5 +2151,217 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: COLORS.brandTeal,
+  },
+  // Auto-Generated Code Badge Styles
+  labelBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  systemGenBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  systemGenBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0284C7',
+    letterSpacing: 0.3,
+  },
+  generatedCodeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 14,
+    padding: 12,
+    gap: 12,
+  },
+  codeIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#E0F7F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  generatedCodeValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: COLORS.brandNavy,
+    letterSpacing: 1.5,
+  },
+  generatedCodeSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  regenerateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  regenerateBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.brandNavy,
+  },
+  // Location Dropdown Triggers
+  dropdownTrigger: {
+    height: 52,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    gap: 10,
+  },
+  dropdownTriggerText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.ink,
+  },
+  // Dropdown Modal
+  dropdownModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  dropdownModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 36,
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  dropdownModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  dropdownModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: COLORS.ink,
+  },
+  dropdownModalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  dropdownCloseBtn: {
+    padding: 4,
+  },
+  dropdownSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 10,
+  },
+  dropdownSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.ink,
+  },
+  dropdownScrollList: {
+    maxHeight: 320,
+  },
+  dropdownOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  dropdownOptionRowActive: {
+    backgroundColor: '#E0F7F6',
+  },
+  dropdownOptionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.ink,
+  },
+  dropdownOptionTextActive: {
+    fontWeight: '800',
+    color: '#007A7C',
+  },
+  customOptionBox: {
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingBottom: 16,
+  },
+  customOptionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 8,
+  },
+  customInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  customInput: {
+    flex: 1,
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: COLORS.ink,
+    backgroundColor: '#F8FAFC',
+  },
+  customApplyBtn: {
+    height: 44,
+    paddingHorizontal: 18,
+    backgroundColor: COLORS.brandNavy,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customApplyBtnDisabled: {
+    backgroundColor: '#94A3B8',
+  },
+  customApplyBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

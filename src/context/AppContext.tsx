@@ -31,9 +31,11 @@ interface AppContextType {
   registerAssociation: (data: {
     name: string;
     code?: string;
+    country?: string;
     state: string;
     district: string;
     mandal: string;
+    village?: string;
     leaderName: string;
     leaderPhone: string;
     establishedYear?: string;
@@ -301,9 +303,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const registerAssociation = async (data: {
     name: string;
     code?: string;
+    country?: string;
     state: string;
     district: string;
     mandal: string;
+    village?: string;
     leaderName: string;
     leaderPhone: string;
     establishedYear?: string;
@@ -320,9 +324,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `assoc-${finalCode.toLowerCase()}-${Date.now()}`,
       name: data.name.trim(),
       code: finalCode,
+      country: data.country?.trim() || 'India',
       state: data.state.trim() || 'Andhra Pradesh',
       district: data.district.trim(),
       mandal: data.mandal.trim(),
+      village: data.village?.trim() || '',
       memberCount: 1, // Founding leader counts as first member
       establishedYear: data.establishedYear?.trim() || new Date().getFullYear().toString(),
       isVerified: true,
