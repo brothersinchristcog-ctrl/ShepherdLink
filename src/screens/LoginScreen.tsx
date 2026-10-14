@@ -9,6 +9,7 @@ import {
   Modal,
   Image,
   ActivityIndicator,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
@@ -39,7 +40,10 @@ export const LoginScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [phoneError, setPhoneError] = useState(false);
 
-  // Custom Beautiful Alert Dialog State
+  // Simple Dropdown State
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
+
+  // Custom Alert Dialog State
   const [customAlert, setCustomAlert] = useState<{
     visible: boolean;
     title: string;
@@ -48,9 +52,6 @@ export const LoginScreen: React.FC = () => {
     actionText?: string;
     onAction?: () => void;
   } | null>(null);
-
-  // Language Modal
-  const [showLangModal, setShowLangModal] = useState(false);
 
   // Registration / Join Association Modal
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -220,180 +221,223 @@ export const LoginScreen: React.FC = () => {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Top Bar with Language Selector */}
+      {/* Top Bar with Simple Dropdown */}
       <View style={styles.topBar}>
         <View style={styles.topBarLeft} />
-        <TouchableOpacity
-          style={styles.langPill}
-          activeOpacity={0.7}
-          onPress={() => setShowLangModal(true)}
-        >
-          <Feather name="globe" size={13} color={COLORS.brandTeal} />
-          <Text style={styles.langPillText}>{language}</Text>
-          <Feather name="chevron-down" size={13} color="#94A3B8" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Brand Logo Presentation */}
-      <View style={styles.brandBox}>
-        <Image
-          source={require('../../assets/logo.png')}
-          style={styles.brandLogo}
-          resizeMode="contain"
-        />
-        <Text style={styles.tagline}>One Fold, One Shepherd</Text>
-      </View>
-
-      {/* Cardless Clean Form Area */}
-      <View style={styles.formContainer}>
-        {step === 'PHONE' ? (
-          /* STEP 1: Phone Number Input */
-          <View style={styles.stepBox}>
-            <View style={styles.headingBox}>
-              <Text style={styles.fieldHeading}>Pastor Mobile Number</Text>
-              <Text style={styles.fieldSub}>
-                Enter your mobile number to sign in or join your association
-              </Text>
-            </View>
-
-            {/* Unified Phone Input Field with Error Highlight */}
-            <View
-              style={[
-                styles.unifiedPhoneInput,
-                phoneError && styles.unifiedPhoneInputError,
-              ]}
-            >
-              <View style={styles.prefixBlock}>
-                <Text style={styles.flagIcon}>🇮🇳</Text>
-                <Text style={styles.countryCodeText}>+91</Text>
-              </View>
-              <View style={styles.verticalDivider} />
-              <TextInput
-                style={styles.phoneTextInput}
-                placeholder="10-digit number"
-                placeholderTextColor="#94A3B8"
-                keyboardType="phone-pad"
-                value={phoneNumber}
-                onChangeText={handlePhoneChange}
-                maxLength={10}
-              />
-              {phoneNumber.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setPhoneNumber('');
-                    setPhoneError(false);
-                  }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  style={styles.clearBtn}
-                >
-                  <Feather name="x-circle" size={17} color="#94A3B8" />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Inline Error Helper */}
-            {phoneError && (
-              <View style={styles.inlineErrorRow}>
-                <Feather name="alert-circle" size={13} color="#EF4444" />
-                <Text style={styles.inlineErrorText}>
-                  {phoneNumber.length === 0
-                    ? 'Mobile number is required'
-                    : `Please enter all 10 digits (${phoneNumber.replace(/\D/g, '').length}/10)`}
-                </Text>
-              </View>
-            )}
-
-            {/* Beautiful Primary Action Button */}
-            <TouchableOpacity
-              style={styles.primaryBtn}
-              activeOpacity={0.85}
-              onPress={handleSendOtp}
-            >
-              <Text style={styles.primaryBtnText}>Get OTP Verification</Text>
-              <View style={styles.btnArrowCircle}>
-                <Feather name="arrow-right" size={15} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
-
-            {/* Clean Register Prompt */}
-            <View style={styles.registerRow}>
-              <Text style={styles.registerQuestion}>New to ShepherdLink?</Text>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => {
-                  setJoinForm((prev) => ({
-                    ...prev,
-                    phone: phoneNumber.replace(/\D/g, '').slice(-10),
-                  }));
-                  setShowJoinModal(true);
-                }}
-              >
-                <Text style={styles.registerActionText}> Register & Join Association</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          /* STEP 2: OTP Verification */
-          <View style={styles.stepBox}>
-            <View style={styles.otpHeader}>
-              <View>
-                <Text style={styles.fieldHeading}>Verification Code</Text>
-                <Text style={styles.fieldSub}>Sent via SMS to +91 {phoneNumber}</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setStep('PHONE')}
-                style={styles.editPhoneBtn}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.editPhoneText}>Edit</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              style={styles.otpInput}
-              placeholder="123456"
-              placeholderTextColor="#CBD5E1"
-              keyboardType="number-pad"
-              value={otpCode}
-              onChangeText={setOtpCode}
-              maxLength={6}
-              autoFocus
+        <View style={styles.langAnchor}>
+          <TouchableOpacity
+            style={styles.langPill}
+            activeOpacity={0.7}
+            onPress={() => setShowLangDropdown((prev) => !prev)}
+          >
+            <Feather name="globe" size={13} color={COLORS.brandTeal} />
+            <Text style={styles.langPillText}>{language}</Text>
+            <Feather
+              name={showLangDropdown ? 'chevron-up' : 'chevron-down'}
+              size={13}
+              color="#94A3B8"
             />
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.primaryBtn}
-              activeOpacity={0.85}
-              onPress={handleVerifyOtp}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Text style={styles.primaryBtnText}>Verify OTP & Sign In</Text>
-                  <View style={styles.btnArrowCircle}>
-                    <Feather name="check" size={15} color="#FFFFFF" />
-                  </View>
-                </>
+          {/* Simple Dropdown Menu */}
+          {showLangDropdown && (
+            <View style={styles.simpleDropdownMenu}>
+              {AVAILABLE_LANGUAGES.map((lang) => {
+                const isActive = language === lang.label;
+                return (
+                  <TouchableOpacity
+                    key={lang.code}
+                    style={[
+                      styles.dropdownRow,
+                      isActive && styles.dropdownRowActive,
+                    ]}
+                    onPress={() => {
+                      setLanguage(lang.label);
+                      setShowLangDropdown(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.dropdownLabel,
+                        isActive && styles.dropdownLabelActive,
+                      ]}
+                    >
+                      {lang.native}
+                    </Text>
+                    {isActive && (
+                      <Feather name="check" size={14} color={COLORS.brandTeal} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Dismiss dropdown when tapping outside */}
+      {showLangDropdown && (
+        <TouchableWithoutFeedback onPress={() => setShowLangDropdown(false)}>
+          <View style={styles.dropdownBackdropOverlay} />
+        </TouchableWithoutFeedback>
+      )}
+
+      {/* Centered Main Body (Eliminates bottom dead space) */}
+      <View style={styles.mainBody}>
+        {/* Brand Logo Presentation */}
+        <View style={styles.brandBox}>
+          <Image
+            source={require('../../assets/logo.png')}
+            style={styles.brandLogo}
+            resizeMode="contain"
+          />
+          <Text style={styles.tagline}>One Fold, One Shepherd</Text>
+        </View>
+
+        {/* Cardless Clean Form Area */}
+        <View style={styles.formContainer}>
+          {step === 'PHONE' ? (
+            /* STEP 1: Phone Number Input */
+            <View style={styles.stepBox}>
+              <Text style={styles.fieldHeading}>Pastor Mobile Number</Text>
+
+              {/* Unified Phone Input Field with Error Highlight */}
+              <View
+                style={[
+                  styles.unifiedPhoneInput,
+                  phoneError && styles.unifiedPhoneInputError,
+                ]}
+              >
+                <View style={styles.prefixBlock}>
+                  <Text style={styles.flagIcon}>🇮🇳</Text>
+                  <Text style={styles.countryCodeText}>+91</Text>
+                </View>
+                <View style={styles.verticalDivider} />
+                <TextInput
+                  style={styles.phoneTextInput}
+                  placeholder="10-digit number"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="phone-pad"
+                  value={phoneNumber}
+                  onChangeText={handlePhoneChange}
+                  maxLength={10}
+                />
+                {phoneNumber.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setPhoneNumber('');
+                      setPhoneError(false);
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={styles.clearBtn}
+                  >
+                    <Feather name="x-circle" size={17} color="#94A3B8" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Inline Error Helper */}
+              {phoneError && (
+                <View style={styles.inlineErrorRow}>
+                  <Feather name="alert-circle" size={13} color="#EF4444" />
+                  <Text style={styles.inlineErrorText}>
+                    {phoneNumber.length === 0
+                      ? 'Mobile number is required'
+                      : `Please enter all 10 digits (${phoneNumber.replace(/\D/g, '').length}/10)`}
+                  </Text>
+                </View>
               )}
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() =>
-                setCustomAlert({
-                  visible: true,
-                  title: 'OTP Resent',
-                  message: `A fresh 6-digit verification code has been dispatched to +91 ${phoneNumber}.`,
-                  type: 'info',
-                  actionText: 'Got It',
-                })
-              }
-              style={styles.resendBtn}
-            >
-              <Text style={styles.resendText}>Resend OTP Code</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+              {/* Beautiful Primary Action Button */}
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                activeOpacity={0.85}
+                onPress={handleSendOtp}
+              >
+                <Text style={styles.primaryBtnText}>Get OTP Verification</Text>
+                <View style={styles.btnArrowCircle}>
+                  <Feather name="arrow-right" size={15} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Clean Register Prompt */}
+              <View style={styles.registerRow}>
+                <Text style={styles.registerQuestion}>New to ShepherdLink?</Text>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setJoinForm((prev) => ({
+                      ...prev,
+                      phone: phoneNumber.replace(/\D/g, '').slice(-10),
+                    }));
+                    setShowJoinModal(true);
+                  }}
+                >
+                  <Text style={styles.registerActionText}> Register & Join Association</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            /* STEP 2: OTP Verification */
+            <View style={styles.stepBox}>
+              <View style={styles.otpHeader}>
+                <Text style={styles.fieldHeading}>Verification Code</Text>
+                <TouchableOpacity
+                  onPress={() => setStep('PHONE')}
+                  style={styles.editPhoneBtn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.editPhoneText}>Edit (+91 {phoneNumber})</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                style={styles.otpInput}
+                placeholder="123456"
+                placeholderTextColor="#CBD5E1"
+                keyboardType="number-pad"
+                value={otpCode}
+                onChangeText={setOtpCode}
+                maxLength={6}
+                autoFocus
+              />
+
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                activeOpacity={0.85}
+                onPress={handleVerifyOtp}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Text style={styles.primaryBtnText}>Verify OTP & Sign In</Text>
+                    <View style={styles.btnArrowCircle}>
+                      <Feather name="check" size={15} color="#FFFFFF" />
+                    </View>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() =>
+                  setCustomAlert({
+                    visible: true,
+                    title: 'OTP Resent',
+                    message: `A fresh 6-digit verification code has been dispatched to +91 ${phoneNumber}.`,
+                    type: 'info',
+                    actionText: 'Got It',
+                  })
+                }
+                style={styles.resendBtn}
+              >
+                <Text style={styles.resendText}>Resend OTP Code</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Security Footer Note */}
@@ -464,57 +508,6 @@ export const LoginScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-
-      {/* Modal: Language Selection */}
-      <Modal visible={showLangModal} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalBackdrop}
-          activeOpacity={1}
-          onPress={() => setShowLangModal(false)}
-        >
-          <View style={styles.langModalCard}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalHeading}>Select Language</Text>
-              <TouchableOpacity onPress={() => setShowLangModal(false)}>
-                <Feather name="x" size={20} color={COLORS.ink} />
-              </TouchableOpacity>
-            </View>
-
-            {AVAILABLE_LANGUAGES.map((lang) => {
-              const isSelected = language === lang.label;
-              return (
-                <TouchableOpacity
-                  key={lang.code}
-                  style={[
-                    styles.langOptionRow,
-                    isSelected && styles.langOptionRowSelected,
-                  ]}
-                  onPress={() => {
-                    setLanguage(lang.label);
-                    setShowLangModal(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View>
-                    <Text
-                      style={[
-                        styles.langOptionLabel,
-                        isSelected && styles.langOptionLabelSelected,
-                      ]}
-                    >
-                      {lang.native}
-                    </Text>
-                    <Text style={styles.langOptionSub}>{lang.label}</Text>
-                  </View>
-                  {isSelected && (
-                    <Feather name="check" size={18} color={COLORS.brandTeal} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </TouchableOpacity>
       </Modal>
 
       {/* Modal: Pastor Registration & Join Association */}
@@ -682,18 +675,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   contentContainer: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingTop: 12,
-    paddingBottom: 32,
+    paddingBottom: 24,
   },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    zIndex: 100,
   },
   topBarLeft: {
     width: 20,
+  },
+  langAnchor: {
+    position: 'relative',
+    zIndex: 100,
   },
   langPill: {
     flexDirection: 'row',
@@ -711,9 +710,57 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.brandNavy,
   },
+  simpleDropdownMenu: {
+    position: 'absolute',
+    top: 36,
+    right: 0,
+    width: 140,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 8,
+    paddingVertical: 4,
+    zIndex: 999,
+  },
+  dropdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  dropdownRowActive: {
+    backgroundColor: '#F0FDFA',
+  },
+  dropdownLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#0F172A',
+  },
+  dropdownLabelActive: {
+    fontWeight: '700',
+    color: COLORS.brandTeal,
+  },
+  dropdownBackdropOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 50,
+  },
+  mainBody: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
   brandBox: {
     alignItems: 'center',
-    marginTop: 6,
     marginBottom: 28,
   },
   brandLogo: {
@@ -728,23 +775,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   formContainer: {
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
   stepBox: {
-    gap: 16,
-  },
-  headingBox: {
-    gap: 4,
+    gap: 14,
   },
   fieldHeading: {
     fontSize: 16,
     fontWeight: '700',
     color: '#0F172A',
-  },
-  fieldSub: {
-    fontSize: 13,
-    color: '#64748B',
-    lineHeight: 18,
   },
   unifiedPhoneInput: {
     flexDirection: 'row',
@@ -793,7 +832,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: -6,
+    marginTop: -4,
     paddingHorizontal: 4,
   },
   inlineErrorText: {
@@ -835,8 +874,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
-    paddingVertical: 8,
+    marginTop: 6,
+    paddingVertical: 6,
   },
   registerQuestion: {
     fontSize: 13,
@@ -850,7 +889,7 @@ const styles = StyleSheet.create({
   otpHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   editPhoneBtn: {
     paddingHorizontal: 10,
@@ -889,7 +928,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 36,
+    paddingTop: 12,
   },
   securityText: {
     fontSize: 12,
@@ -989,18 +1028,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-end',
   },
-  langModalCard: {
+  joinModalCard: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 24,
-    gap: 12,
+    paddingBottom: 36,
+    maxHeight: '90%',
   },
   modalHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   modalHeading: {
     fontSize: 18,
@@ -1011,41 +1051,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     marginTop: 2,
-  },
-  langOptionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  langOptionRowSelected: {
-    backgroundColor: '#F0FDFA',
-    borderColor: '#99F6E4',
-  },
-  langOptionLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.ink,
-  },
-  langOptionLabelSelected: {
-    color: COLORS.brandTeal,
-  },
-  langOptionSub: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  joinModalCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 36,
-    maxHeight: '90%',
   },
   formLabel: {
     fontSize: 13,
