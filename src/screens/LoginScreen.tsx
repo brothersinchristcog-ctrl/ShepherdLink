@@ -481,7 +481,7 @@ export const LoginScreen: React.FC = () => {
                   </View>
                 </View>
                 <Text style={styles.cardSubtitle}>
-                  Enter the unique Association Code provided by your Pastors Association leadership.
+                  Enter the code provided by your fellowship leadership.
                 </Text>
               </View>
             </View>
@@ -569,19 +569,20 @@ export const LoginScreen: React.FC = () => {
                   </View>
                 </View>
                 <Text style={styles.cardSubtitle}>
-                  Want to bring your fellowship or mandal pastors on ShepherdLink? Register a new association and become the Admin.
+                  Create a new association for your pastors fellowship.
                 </Text>
               </View>
             </View>
 
             <TouchableOpacity
               style={styles.secondaryBtn}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               onPress={() => setStep('REGISTER_ASSOC')}
             >
-              <Ionicons name="add-circle" size={18} color={COLORS.brandNavy} />
               <Text style={styles.secondaryBtnText}>Register New Association</Text>
-              <Feather name="chevron-right" size={16} color={COLORS.brandNavy} style={{ marginLeft: 'auto' }} />
+              <View style={styles.secondaryBtnArrowCircle}>
+                <Feather name="arrow-right" size={15} color={COLORS.brandNavy} />
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -1241,18 +1242,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     shadowColor: COLORS.brandNavy,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
+    shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 3,
     gap: 14,
   },
   registerCard: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -1423,20 +1425,34 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   secondaryBtn: {
-    height: 50,
+    height: 52,
     backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
     borderColor: COLORS.brandNavy,
     borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    justifyContent: 'center',
     gap: 10,
+    shadowColor: COLORS.brandNavy,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   secondaryBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: COLORS.brandNavy,
+    letterSpacing: 0.2,
+  },
+  secondaryBtnArrowCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 43, 92, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   formContainer: {
     gap: 12,
