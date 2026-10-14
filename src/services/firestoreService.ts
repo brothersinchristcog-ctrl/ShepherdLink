@@ -155,4 +155,61 @@ export const FirestoreService = {
       );
     }
   },
+
+  /**
+   * Fetch all registered pastors across all associations
+   */
+  async getAllPastors(): Promise<Pastor[]> {
+    if (!db) return INITIAL_PASTORS;
+    try {
+      const snap = await getDocs(collection(db, 'pastors'));
+      if (snap.empty) {
+        return INITIAL_PASTORS;
+      }
+      return snap.docs.map((d) => d.data() as Pastor);
+    } catch (error) {
+      console.warn('⚠️ Falling back to local pastors list:', error);
+      return INITIAL_PASTORS;
+    }
+  },
+
+  /**
+   * Save or register a new pastor into Cloud Firestore
+   */
+  async savePastor(pastor: Pastor): Promise<boolean> {
+    if (!db) return true;
+    try {
+      await setDoc(doc(db, 'pastors', pastor.id), pastor, { merge: true });
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to save pastor to Firestore:', error);
+      return false;
+    }
+  },
+
+  /**
+   * Save a request to join an association
+   */
+  async saveJoinRequest(request: {
+    id: string;
+    name: string;
+    phone: string;
+    churchName: string;
+    associationId: string;
+    associationName: string;
+    mandal: string;
+    district: string;
+    denomination: string;
+    status: 'PENDING' | 'APPROVED';
+    createdAt: string;
+  }): Promise<boolean> {
+    if (!db) return true;
+    try {
+      await setDoc(doc(db, 'join_requests', request.id), request, { merge: true });
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to save join request to Firestore:', error);
+      return false;
+    }
+  },
 };

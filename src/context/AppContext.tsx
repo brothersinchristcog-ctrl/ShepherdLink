@@ -46,7 +46,27 @@ interface AppContextType {
   };
   loggedPastor: Pastor | null;
   isLoggedIn: boolean;
-  loginWithPhone: (phoneNumber: string) => void;
+  loginWithPhone: (phoneNumber: string) => boolean;
+  registerPastor: (data: {
+    name: string;
+    phone: string;
+    churchName: string;
+    associationId: string;
+    village?: string;
+    mandal?: string;
+    district?: string;
+    state?: string;
+    denomination?: string;
+  }) => Promise<Pastor>;
+  submitJoinRequest: (data: {
+    name: string;
+    phone: string;
+    churchName: string;
+    associationId: string;
+    denomination?: string;
+    mandal?: string;
+    district?: string;
+  }) => Promise<boolean>;
   logout: () => void;
 
   // Language
@@ -107,7 +127,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [associations, setAssociations] = useState<Association[]>(INITIAL_ASSOCIATIONS);
   const [currentAssociation, setCurrentAssociation] = useState<Association>(INITIAL_ASSOCIATIONS[0]);
 
-  const [allPastors] = useState<Pastor[]>(INITIAL_PASTORS);
+  const [allPastors, setAllPastors] = useState<Pastor[]>(INITIAL_PASTORS);
   const [selectedPastor, setSelectedPastor] = useState<Pastor>(INITIAL_PASTORS[1]);
 
   const [allEvents, setAllEvents] = useState<AssociationEvent[]>(INITIAL_EVENTS);
@@ -132,6 +152,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (fetchedAssocs.length > 0) {
           setAssociations(fetchedAssocs);
           setCurrentAssociation(fetchedAssocs[0]);
+        }
+        const fetchedPastors = await FirestoreService.getAllPastors();
+        if (fetchedPastors.length > 0) {
+          setAllPastors(fetchedPastors);
         }
       } catch (err) {
         console.warn('Using offline data fallback:', err);
@@ -184,7 +208,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setShowPrototypePicker((prev) => !prev);
   };
 
-  const loginWithPhone = (phoneNumber: string) => {
+  const loginWithPhone = (phoneNumber: string): boolean => {
     const cleanInput = phoneNumber.replace(/\D/g, '').slice(-10);
 
     // Look for registered pastor in the dataset
@@ -200,33 +224,92 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentAssociation(assoc);
       }
       setSelectedPastor(matchedPastor);
-    } else {
-      // Dynamic profile for new/guest pastors
-      const newPastor: Pastor = {
-        id: `p-${Date.now()}`,
-        name: `Pastor (${cleanInput.slice(-4)})`,
-        associationId: currentAssociation.id,
-        associationName: currentAssociation.name,
-        isVerified: true,
-        churchName: 'Faith Fellowship Church',
-        village: currentAssociation.mandal,
-        mandal: currentAssociation.mandal,
-        district: currentAssociation.district,
-        state: currentAssociation.state,
-        role: 'MEMBER',
-        phone: `+91 ${cleanInput}`,
-        churchAddress: `Main Road, ${currentAssociation.mandal}`,
-        denomination: 'Independent',
-        ordainedYear: '2021',
-        ministry: 'Pastoral & Evangelism',
-        languages: ['Telugu', 'English'],
-      };
-      setLoggedPastor(newPastor);
-      setSelectedPastor(newPastor);
+      setIsLoggedIn(true);
+      setCurrentScreen('home');
+      return true;
     }
 
+    return false;
+  };
+
+  const registerPastor = async (data: {
+    name: string;
+    phone: string;
+    churchName: string;
+    associationId: string;
+    village?: string;
+    mandal?: string;
+    district?: string;
+    state?: string;
+    denomination?: string;
+  }): Promise<Pastor> => {
+    const cleanPhone = data.phone.replace(/\D/g, '').slice(-10);
+    const assoc = associations.find((a) => a.id === data.associationId) || currentAssociation;
+
+    const formattedName =
+      data.name.startsWith('Pastor ') || data.name.startsWith('Rev. ')
+        ? data.name
+        : `Pastor ${data.name}`;
+
+    const newPastor: Pastor = {
+      id: `p-${Date.now()}`,
+      name: formattedName,
+      associationId: assoc.id,
+      associationName: assoc.name,
+      isVerified: true,
+      churchName: data.churchName || 'Faith Fellowship Church',
+      village: data.village || assoc.mandal,
+      mandal: data.mandal || assoc.mandal,
+      district: data.district || assoc.district,
+      state: data.state || assoc.state,
+      role: 'MEMBER',
+      phone: `+91 ${cleanPhone}`,
+      churchAddress: `${data.churchName}, ${data.mandal || assoc.mandal}`,
+      denomination: data.denomination || 'Independent',
+      ordainedYear: new Date().getFullYear().toString(),
+      ministry: 'Pastoral & Evangelism',
+      languages: ['Telugu', 'English'],
+    };
+
+    setAllPastors((prev) => [newPastor, ...prev]);
+    setCurrentAssociation(assoc);
+    setLoggedPastor(newPastor);
+    setSelectedPastor(newPastor);
     setIsLoggedIn(true);
     setCurrentScreen('home');
+
+    FirestoreService.savePastor(newPastor).catch((err) => {
+      console.warn('Could not persist new pastor to Firestore:', err);
+    });
+
+    return newPastor;
+  };
+
+  const submitJoinRequest = async (data: {
+    name: string;
+    phone: string;
+    churchName: string;
+    associationId: string;
+    denomination?: string;
+    mandal?: string;
+    district?: string;
+  }): Promise<boolean> => {
+    const assoc = associations.find((a) => a.id === data.associationId) || currentAssociation;
+    const req = {
+      id: `req-${Date.now()}`,
+      name: data.name,
+      phone: data.phone,
+      churchName: data.churchName,
+      associationId: assoc.id,
+      associationName: assoc.name,
+      mandal: data.mandal || assoc.mandal,
+      district: data.district || assoc.district,
+      denomination: data.denomination || 'Independent',
+      status: 'PENDING' as const,
+      createdAt: new Date().toISOString(),
+    };
+
+    return FirestoreService.saveJoinRequest(req);
   };
 
   const logout = () => {
@@ -347,6 +430,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loggedPastor,
         isLoggedIn,
         loginWithPhone,
+        registerPastor,
+        submitJoinRequest,
         logout,
         language,
         setLanguage,
