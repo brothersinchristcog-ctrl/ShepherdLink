@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "869350585718",
+    "project_id": "shepherdlink-fdd39",
+    "storage_bucket": "shepherdlink-fdd39.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:869350585718:android:34db3c0c17dffca6e7f657",
+        "android_client_info": {
+          "package_name": "com.shepherdlink.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOCt74EtBRkC77guejHGcoAcokSwtRF9U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
