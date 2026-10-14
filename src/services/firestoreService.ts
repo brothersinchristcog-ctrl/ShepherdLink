@@ -188,6 +188,62 @@ export const FirestoreService = {
   },
 
   /**
+   * Save or register a new association into Cloud Firestore
+   */
+  async saveAssociation(assoc: Association): Promise<boolean> {
+    if (!db) return true;
+    try {
+      await setDoc(doc(db, 'associations', assoc.id), assoc, { merge: true });
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to save association to Firestore:', error);
+      return false;
+    }
+  },
+
+  /**
+   * Lookup association by its unique code (case-insensitive)
+   */
+  async getAssociationByCode(code: string): Promise<Association | null> {
+    const cleanCode = code.trim().toUpperCase();
+    if (!cleanCode) return null;
+
+    if (!db) {
+      const found = INITIAL_ASSOCIATIONS.find((a) => a.code.toUpperCase() === cleanCode);
+      return found || null;
+    }
+
+    try {
+      const q = query(collection(db, 'associations'), where('code', '==', cleanCode));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        return snap.docs[0].data() as Association;
+      }
+      return null;
+    } catch (error) {
+      console.warn('⚠️ Error searching association by code:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Increment member count of an association
+   */
+  async incrementAssociationMemberCount(associationId: string): Promise<void> {
+    if (!db) return;
+    try {
+      const assocRef = doc(db, 'associations', associationId);
+      const snap = await getDocs(query(collection(db, 'associations'), where('id', '==', associationId)));
+      if (!snap.empty) {
+        const curData = snap.docs[0].data() as Association;
+        await setDoc(assocRef, { memberCount: (curData.memberCount || 0) + 1 }, { merge: true });
+      }
+    } catch (error) {
+      console.warn('Could not increment member count:', error);
+    }
+  },
+
+  /**
    * Save a request to join an association
    */
   async saveJoinRequest(request: {

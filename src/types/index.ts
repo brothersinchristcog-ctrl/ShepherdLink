@@ -24,6 +24,9 @@ export interface Association {
   establishedYear: string;
   isVerified: boolean;
   registrationNumber?: string;
+  leaderName?: string;
+  leaderPhone?: string;
+  createdAt?: string;
 }
 
 export interface Pastor {
@@ -31,6 +34,7 @@ export interface Pastor {
   name: string;
   associationId: string;
   associationName: string;
+  associationCode?: string;
   isVerified: boolean;
   churchName: string;
   village: string;

@@ -31,6 +31,17 @@ interface AppContextType {
   associations: Association[];
   currentAssociation: Association;
   switchAssociation: (associationId: string) => void;
+  registerAssociation: (data: {
+    name: string;
+    code?: string;
+    state: string;
+    district: string;
+    mandal: string;
+    leaderName: string;
+    leaderPhone: string;
+    establishedYear?: string;
+  }) => Promise<Association>;
+  findAssociationByCode: (code: string) => Association | null;
 
   // Current logged in user info
   currentUser: {
@@ -51,7 +62,8 @@ interface AppContextType {
     name: string;
     phone: string;
     churchName: string;
-    associationId: string;
+    associationId?: string;
+    associationCode?: string;
     village?: string;
     mandal?: string;
     district?: string;
@@ -232,11 +244,94 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   };
 
+  const findAssociationByCode = (code: string): Association | null => {
+    const clean = code.trim().toUpperCase();
+    if (!clean) return null;
+    return associations.find((a) => a.code.toUpperCase() === clean) || null;
+  };
+
+  const registerAssociation = async (data: {
+    name: string;
+    code?: string;
+    state: string;
+    district: string;
+    mandal: string;
+    leaderName: string;
+    leaderPhone: string;
+    establishedYear?: string;
+  }): Promise<Association> => {
+    // Generate clean uppercase code (e.g. UKUPS or prefix of name)
+    let finalCode = (data.code || data.name.replace(/[^A-Za-z]/g, '').slice(0, 6)).toUpperCase();
+    if (!finalCode || finalCode.length < 3) {
+      finalCode = `ASSOC${Math.floor(100 + Math.random() * 900)}`;
+    }
+
+    const cleanLeaderPhone = data.leaderPhone.replace(/\D/g, '').slice(-10);
+
+    const newAssoc: Association = {
+      id: `assoc-${finalCode.toLowerCase()}-${Date.now()}`,
+      name: data.name.trim(),
+      code: finalCode,
+      state: data.state.trim() || 'Andhra Pradesh',
+      district: data.district.trim(),
+      mandal: data.mandal.trim(),
+      memberCount: 1, // Founding leader counts as first member
+      establishedYear: data.establishedYear?.trim() || new Date().getFullYear().toString(),
+      isVerified: true,
+      leaderName: data.leaderName.trim(),
+      leaderPhone: `+91 ${cleanLeaderPhone}`,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Auto-create founding President pastor profile
+    const leaderFormattedName =
+      data.leaderName.startsWith('Pastor ') || data.leaderName.startsWith('Rev. ')
+        ? data.leaderName
+        : `Pastor ${data.leaderName}`;
+
+    const leaderPastor: Pastor = {
+      id: `p-lead-${Date.now()}`,
+      name: leaderFormattedName,
+      associationId: newAssoc.id,
+      associationName: newAssoc.name,
+      associationCode: newAssoc.code,
+      isVerified: true,
+      churchName: `${data.name} Central Fellowship`,
+      village: newAssoc.mandal,
+      mandal: newAssoc.mandal,
+      district: newAssoc.district,
+      state: newAssoc.state,
+      role: 'PRESIDENT',
+      phone: `+91 ${cleanLeaderPhone}`,
+      churchAddress: `${newAssoc.mandal}, ${newAssoc.district}`,
+      denomination: 'Independent',
+      ordainedYear: newAssoc.establishedYear,
+      ministry: 'Pastoral & Association Leadership',
+      languages: ['Telugu', 'English'],
+    };
+
+    // Update state
+    setAssociations((prev) => [newAssoc, ...prev]);
+    setAllPastors((prev) => [leaderPastor, ...prev]);
+    setCurrentAssociation(newAssoc);
+    setLoggedPastor(leaderPastor);
+    setSelectedPastor(leaderPastor);
+    setIsLoggedIn(true);
+    setCurrentScreen('home');
+
+    // Persist to Cloud Firestore
+    FirestoreService.saveAssociation(newAssoc).catch(console.warn);
+    FirestoreService.savePastor(leaderPastor).catch(console.warn);
+
+    return newAssoc;
+  };
+
   const registerPastor = async (data: {
     name: string;
     phone: string;
     churchName: string;
-    associationId: string;
+    associationId?: string;
+    associationCode?: string;
     village?: string;
     mandal?: string;
     district?: string;
@@ -244,7 +339,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     denomination?: string;
   }): Promise<Pastor> => {
     const cleanPhone = data.phone.replace(/\D/g, '').slice(-10);
-    const assoc = associations.find((a) => a.id === data.associationId) || currentAssociation;
+
+    // Resolve association by code if provided, or by ID, or fallback to current
+    let assoc = currentAssociation;
+    if (data.associationCode) {
+      const byCode = findAssociationByCode(data.associationCode);
+      if (byCode) {
+        assoc = byCode;
+      }
+    } else if (data.associationId) {
+      const byId = associations.find((a) => a.id === data.associationId);
+      if (byId) {
+        assoc = byId;
+      }
+    }
 
     const formattedName =
       data.name.startsWith('Pastor ') || data.name.startsWith('Rev. ')
@@ -256,6 +364,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name: formattedName,
       associationId: assoc.id,
       associationName: assoc.name,
+      associationCode: assoc.code,
       isVerified: true,
       churchName: data.churchName || 'Faith Fellowship Church',
       village: data.village || assoc.mandal,
@@ -278,9 +387,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsLoggedIn(true);
     setCurrentScreen('home');
 
-    FirestoreService.savePastor(newPastor).catch((err) => {
-      console.warn('Could not persist new pastor to Firestore:', err);
-    });
+    // Increment member count in association
+    setAssociations((prev) =>
+      prev.map((a) => (a.id === assoc.id ? { ...a, memberCount: (a.memberCount || 0) + 1 } : a))
+    );
+
+    FirestoreService.savePastor(newPastor).catch(console.warn);
+    FirestoreService.incrementAssociationMemberCount(assoc.id).catch(console.warn);
 
     return newPastor;
   };
@@ -426,6 +539,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         associations,
         currentAssociation,
         switchAssociation,
+        registerAssociation,
+        findAssociationByCode,
         currentUser,
         loggedPastor,
         isLoggedIn,

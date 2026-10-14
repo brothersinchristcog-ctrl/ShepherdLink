@@ -10,6 +10,7 @@ import {
   Image,
   ActivityIndicator,
   TouchableWithoutFeedback,
+  Share,
 } from 'react-native';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
@@ -27,6 +28,8 @@ export const LoginScreen: React.FC = () => {
   const {
     loginWithPhone,
     registerPastor,
+    registerAssociation,
+    findAssociationByCode,
     submitJoinRequest,
     associations,
     currentAssociation,
@@ -53,17 +56,37 @@ export const LoginScreen: React.FC = () => {
     onAction?: () => void;
   } | null>(null);
 
-  // Registration / Join Association Modal
+  // Member Pastor Join Modal State
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinForm, setJoinForm] = useState({
     name: '',
     phone: '',
     churchName: '',
+    associationCode: '',
     associationId: currentAssociation?.id || (associations[0]?.id ?? 'assoc-gannavaram'),
     mandal: currentAssociation?.mandal || 'Gannavaram',
     district: currentAssociation?.district || 'Krishna',
     denomination: 'Independent',
   });
+
+  // Association Registration Modal State (e.g. UKUPS registration)
+  const [showAssocRegModal, setShowAssocRegModal] = useState(false);
+  const [assocRegForm, setAssocRegForm] = useState({
+    name: '',
+    code: '',
+    state: 'Andhra Pradesh',
+    district: 'Krishna',
+    mandal: 'Gannavaram',
+    leaderName: '',
+    leaderPhone: '',
+    establishedYear: new Date().getFullYear().toString(),
+  });
+
+  // Success Code Share Dialog State
+  const [createdAssocCode, setCreatedAssocCode] = useState<{
+    name: string;
+    code: string;
+  } | null>(null);
 
   const handlePhoneChange = (text: string) => {
     setPhoneNumber(text);
@@ -130,6 +153,7 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
+  // Join Pastor using Association Code or Selection
   const handleCompleteRegistration = async (instantEnter: boolean) => {
     if (!joinForm.name.trim()) {
       setCustomAlert({
@@ -171,6 +195,7 @@ export const LoginScreen: React.FC = () => {
           name: joinForm.name.trim(),
           phone: targetPhone,
           churchName: joinForm.churchName.trim(),
+          associationCode: joinForm.associationCode.trim() || undefined,
           associationId: joinForm.associationId,
           mandal: joinForm.mandal.trim(),
           district: joinForm.district.trim(),
@@ -211,8 +236,89 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
+  // Register New Association (e.g. UKUPS)
+  const handleRegisterAssociation = async () => {
+    if (!assocRegForm.name.trim()) {
+      setCustomAlert({
+        visible: true,
+        title: 'Association Name Required',
+        message: 'Please enter the association name (e.g. UKUPS Pastors Association).',
+        type: 'error',
+        actionText: 'Enter Name',
+      });
+      return;
+    }
+    if (!assocRegForm.leaderName.trim()) {
+      setCustomAlert({
+        visible: true,
+        title: 'Leader Name Required',
+        message: 'Please enter the President or General Secretary name.',
+        type: 'error',
+        actionText: 'Enter Leader Name',
+      });
+      return;
+    }
+    const cleanLeaderPhone = assocRegForm.leaderPhone.replace(/\D/g, '').slice(-10);
+    if (cleanLeaderPhone.length < 10) {
+      setCustomAlert({
+        visible: true,
+        title: 'Leader Mobile Required',
+        message: 'Please enter a valid 10-digit mobile number for the association leader.',
+        type: 'error',
+        actionText: 'Enter Mobile',
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const created = await registerAssociation({
+        name: assocRegForm.name.trim(),
+        code: assocRegForm.code.trim() || undefined,
+        state: assocRegForm.state.trim() || 'Andhra Pradesh',
+        district: assocRegForm.district.trim() || 'Krishna',
+        mandal: assocRegForm.mandal.trim() || 'Gannavaram',
+        leaderName: assocRegForm.leaderName.trim(),
+        leaderPhone: cleanLeaderPhone,
+        establishedYear: assocRegForm.establishedYear.trim(),
+      });
+
+      setShowAssocRegModal(false);
+      setCreatedAssocCode({
+        name: created.name,
+        code: created.code,
+      });
+    } catch {
+      setCustomAlert({
+        visible: true,
+        title: 'Error',
+        message: 'Could not register association. Please try again.',
+        type: 'error',
+        actionText: 'Retry',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const matchedAssocByCode = joinForm.associationCode.trim()
+    ? findAssociationByCode(joinForm.associationCode)
+    : null;
+
   const selectedAssoc =
-    associations.find((a) => a.id === joinForm.associationId) || associations[0];
+    matchedAssocByCode ||
+    associations.find((a) => a.id === joinForm.associationId) ||
+    associations[0];
+
+  const handleShareCode = async (code: string, assocName: string) => {
+    try {
+      await Share.share({
+        message: `Join ${assocName} on ShepherdLink app! Download the app and enter Association Code: *${code}* to connect with all member pastors.`,
+      });
+    } catch {
+      // Ignored
+    }
+  };
 
   return (
     <ScrollView
@@ -283,7 +389,7 @@ export const LoginScreen: React.FC = () => {
         </TouchableWithoutFeedback>
       )}
 
-      {/* Centered Main Body (Eliminates bottom dead space) */}
+      {/* Main Body */}
       <View style={styles.mainBody}>
         {/* Brand Logo Presentation */}
         <View style={styles.brandBox}>
@@ -295,7 +401,7 @@ export const LoginScreen: React.FC = () => {
           <Text style={styles.tagline}>One Fold, One Shepherd</Text>
         </View>
 
-        {/* Cardless Clean Form Area */}
+        {/* Form Area */}
         <View style={styles.formContainer}>
           {step === 'PHONE' ? (
             /* STEP 1: Phone Number Input */
@@ -349,7 +455,7 @@ export const LoginScreen: React.FC = () => {
                 </View>
               )}
 
-              {/* Beautiful Primary Action Button */}
+              {/* Primary Action Button */}
               <TouchableOpacity
                 style={styles.primaryBtn}
                 activeOpacity={0.85}
@@ -361,10 +467,10 @@ export const LoginScreen: React.FC = () => {
                 </View>
               </TouchableOpacity>
 
-              {/* Clean Register Prompt */}
-              <View style={styles.registerRow}>
-                <Text style={styles.registerQuestion}>New to ShepherdLink?</Text>
+              {/* Multi-Association Action Bar */}
+              <View style={styles.associationActionsWrap}>
                 <TouchableOpacity
+                  style={styles.assocActionPill}
                   activeOpacity={0.7}
                   onPress={() => {
                     setJoinForm((prev) => ({
@@ -374,7 +480,19 @@ export const LoginScreen: React.FC = () => {
                     setShowJoinModal(true);
                   }}
                 >
-                  <Text style={styles.registerActionText}> Register & Join Association</Text>
+                  <Feather name="key" size={14} color={COLORS.brandTeal} />
+                  <Text style={styles.assocActionPillText}>Join with Association Code</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.assocActionPill, styles.assocActionPillLeader]}
+                  activeOpacity={0.7}
+                  onPress={() => setShowAssocRegModal(true)}
+                >
+                  <Feather name="plus-circle" size={14} color={COLORS.brandNavy} />
+                  <Text style={[styles.assocActionPillText, { color: COLORS.brandNavy }]}>
+                    Register New Association
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -446,7 +564,7 @@ export const LoginScreen: React.FC = () => {
         <Text style={styles.securityText}>Verified Pastors Association Network</Text>
       </View>
 
-      {/* Custom Beautiful Alert / Popup Dialog */}
+      {/* Custom Alert Dialog */}
       <Modal visible={!!customAlert?.visible} transparent animationType="fade">
         <View style={styles.customAlertBackdrop}>
           <View style={styles.customAlertCard}>
@@ -510,15 +628,15 @@ export const LoginScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Modal: Pastor Registration & Join Association */}
+      {/* Modal 1: Join Association with Code (For Pastors) */}
       <Modal visible={showJoinModal} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.joinModalCard}>
             <View style={styles.modalHeaderRow}>
               <View>
-                <Text style={styles.modalHeading}>Register & Join Association</Text>
+                <Text style={styles.modalHeading}>Join Association</Text>
                 <Text style={styles.modalSub}>
-                  Create your profile to join your Mandal Pastors Association
+                  Enter association code (e.g. UKUPS) or select from list
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setShowJoinModal(false)}>
@@ -526,7 +644,52 @@ export const LoginScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 480 }}>
+              {/* Unique Association Code Input */}
+              <Text style={styles.formLabel}>Association Invitation Code</Text>
+              <View style={styles.codeSearchRow}>
+                <TextInput
+                  style={[styles.formInput, styles.codeSearchInput]}
+                  placeholder="e.g. UKUPS"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="characters"
+                  value={joinForm.associationCode}
+                  onChangeText={(t) =>
+                    setJoinForm({ ...joinForm, associationCode: t.toUpperCase() })
+                  }
+                />
+              </View>
+
+              {/* Code Resolution Status Badge */}
+              {joinForm.associationCode.trim().length > 0 && (
+                <View
+                  style={[
+                    styles.codeStatusBadge,
+                    matchedAssocByCode
+                      ? styles.codeStatusBadgeSuccess
+                      : styles.codeStatusBadgeWarning,
+                  ]}
+                >
+                  <Feather
+                    name={matchedAssocByCode ? 'check-circle' : 'info'}
+                    size={15}
+                    color={matchedAssocByCode ? '#059669' : '#D97706'}
+                  />
+                  <Text
+                    style={[
+                      styles.codeStatusText,
+                      matchedAssocByCode
+                        ? styles.codeStatusTextSuccess
+                        : styles.codeStatusTextWarning,
+                    ]}
+                  >
+                    {matchedAssocByCode
+                      ? `Valid: ${matchedAssocByCode.name} (${matchedAssocByCode.mandal}, ${matchedAssocByCode.district})`
+                      : 'Association code not found. You can choose from the list below.'}
+                  </Text>
+                </View>
+              )}
+
               {/* Pastor Full Name */}
               <Text style={styles.formLabel}>Pastor Full Name *</Text>
               <TextInput
@@ -559,68 +722,58 @@ export const LoginScreen: React.FC = () => {
                 onChangeText={(t) => setJoinForm({ ...joinForm, churchName: t })}
               />
 
-              {/* Select Association */}
-              <Text style={styles.formLabel}>Choose Pastors Association *</Text>
-              <View style={styles.assocPickerContainer}>
-                {associations.map((assoc) => {
-                  const isAssocActive = joinForm.associationId === assoc.id;
-                  return (
-                    <TouchableOpacity
-                      key={assoc.id}
-                      style={[
-                        styles.assocPill,
-                        isAssocActive && styles.assocPillActive,
-                      ]}
-                      onPress={() =>
-                        setJoinForm({
-                          ...joinForm,
-                          associationId: assoc.id,
-                          mandal: assoc.mandal,
-                          district: assoc.district,
-                        })
-                      }
-                      activeOpacity={0.7}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text
+              {/* Select from Association Directory if no code */}
+              {!matchedAssocByCode && (
+                <>
+                  <Text style={styles.formLabel}>Or Select Existing Association *</Text>
+                  <View style={styles.assocPickerContainer}>
+                    {associations.map((assoc) => {
+                      const isAssocActive = joinForm.associationId === assoc.id;
+                      return (
+                        <TouchableOpacity
+                          key={assoc.id}
                           style={[
-                            styles.assocPillTitle,
-                            isAssocActive && styles.assocPillTitleActive,
+                            styles.assocPill,
+                            isAssocActive && styles.assocPillActive,
                           ]}
+                          onPress={() =>
+                            setJoinForm({
+                              ...joinForm,
+                              associationId: assoc.id,
+                              associationCode: assoc.code,
+                              mandal: assoc.mandal,
+                              district: assoc.district,
+                            })
+                          }
+                          activeOpacity={0.7}
                         >
-                          {assoc.name}
-                        </Text>
-                        <Text style={styles.assocPillMeta}>
-                          {assoc.mandal} • {assoc.district} • {assoc.memberCount} pastors
-                        </Text>
-                      </View>
-                      {isAssocActive && (
-                        <Feather name="check-circle" size={18} color="#FFFFFF" />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Mandal & District */}
-              <View style={styles.formRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.formLabel}>Mandal / Town</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={joinForm.mandal}
-                    onChangeText={(t) => setJoinForm({ ...joinForm, mandal: t })}
-                  />
-                </View>
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.formLabel}>District</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={joinForm.district}
-                    onChangeText={(t) => setJoinForm({ ...joinForm, district: t })}
-                  />
-                </View>
-              </View>
+                          <View style={{ flex: 1 }}>
+                            <View style={styles.assocPillHeader}>
+                              <Text
+                                style={[
+                                  styles.assocPillTitle,
+                                  isAssocActive && styles.assocPillTitleActive,
+                                ]}
+                              >
+                                {assoc.name}
+                              </Text>
+                              <View style={styles.codeTag}>
+                                <Text style={styles.codeTagText}>{assoc.code}</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.assocPillMeta}>
+                              {assoc.mandal} • {assoc.district} • {assoc.memberCount} pastors
+                            </Text>
+                          </View>
+                          {isAssocActive && (
+                            <Feather name="check-circle" size={18} color="#FFFFFF" />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
 
               {/* Denomination */}
               <Text style={styles.formLabel}>Denomination</Text>
@@ -645,23 +798,187 @@ export const LoginScreen: React.FC = () => {
                   <>
                     <FontAwesome5 name="check" size={14} color="#FFFFFF" />
                     <Text style={styles.modalPrimaryBtnText}>
-                      Create Account & Join {selectedAssoc?.mandal || 'Association'}
+                      Join {selectedAssoc?.name || 'Association'}
                     </Text>
                   </>
                 )}
               </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
-              {/* Secondary Action: Submit Request for Verification */}
-              <TouchableOpacity
-                style={styles.secondaryOutlineBtn}
-                onPress={() => handleCompleteRegistration(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.secondaryOutlineBtnText}>
-                  Submit Application for Leader Approval Only
+      {/* Modal 2: Register New Association (e.g. UKUPS) */}
+      <Modal visible={showAssocRegModal} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.joinModalCard}>
+            <View style={styles.modalHeaderRow}>
+              <View>
+                <Text style={styles.modalHeading}>Register Association</Text>
+                <Text style={styles.modalSub}>
+                  Onboard your Pastors Association on ShepherdLink
                 </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowAssocRegModal(false)}>
+                <Feather name="x" size={22} color={COLORS.ink} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 480 }}>
+              {/* Association Full Name */}
+              <Text style={styles.formLabel}>Association Full Name *</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="e.g. UKUPS Pastors Association"
+                placeholderTextColor="#94A3B8"
+                value={assocRegForm.name}
+                onChangeText={(t) => {
+                  setAssocRegForm({
+                    ...assocRegForm,
+                    name: t,
+                    code: assocRegForm.code || t.replace(/[^A-Za-z]/g, '').slice(0, 6).toUpperCase(),
+                  });
+                }}
+              />
+
+              {/* Preferred Code / Acronym */}
+              <Text style={styles.formLabel}>Association Code / Short Acronym *</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="e.g. UKUPS"
+                placeholderTextColor="#94A3B8"
+                autoCapitalize="characters"
+                value={assocRegForm.code}
+                onChangeText={(t) =>
+                  setAssocRegForm({ ...assocRegForm, code: t.toUpperCase() })
+                }
+              />
+              <Text style={styles.fieldHint}>
+                Members of this association will use this code to join in ShepherdLink.
+              </Text>
+
+              {/* President / Secretary Name */}
+              <Text style={styles.formLabel}>President / Leader Name *</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="e.g. Pastor David Wesley"
+                placeholderTextColor="#94A3B8"
+                value={assocRegForm.leaderName}
+                onChangeText={(t) => setAssocRegForm({ ...assocRegForm, leaderName: t })}
+              />
+
+              {/* Leader Mobile */}
+              <Text style={styles.formLabel}>President Mobile Number *</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="10-digit mobile"
+                placeholderTextColor="#94A3B8"
+                keyboardType="phone-pad"
+                value={assocRegForm.leaderPhone}
+                onChangeText={(t) => setAssocRegForm({ ...assocRegForm, leaderPhone: t })}
+                maxLength={10}
+              />
+
+              {/* Mandal & District */}
+              <View style={styles.formRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.formLabel}>Mandal / City *</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="e.g. Gannavaram"
+                    placeholderTextColor="#94A3B8"
+                    value={assocRegForm.mandal}
+                    onChangeText={(t) => setAssocRegForm({ ...assocRegForm, mandal: t })}
+                  />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.formLabel}>District *</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="e.g. Krishna"
+                    placeholderTextColor="#94A3B8"
+                    value={assocRegForm.district}
+                    onChangeText={(t) => setAssocRegForm({ ...assocRegForm, district: t })}
+                  />
+                </View>
+              </View>
+
+              {/* Established Year */}
+              <Text style={styles.formLabel}>Year Established</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="e.g. 2018"
+                placeholderTextColor="#94A3B8"
+                keyboardType="number-pad"
+                value={assocRegForm.establishedYear}
+                onChangeText={(t) => setAssocRegForm({ ...assocRegForm, establishedYear: t })}
+                maxLength={4}
+              />
+
+              {/* Register Association Action */}
+              <TouchableOpacity
+                style={styles.modalPrimaryBtn}
+                onPress={handleRegisterAssociation}
+                activeOpacity={0.85}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <FontAwesome5 name="check" size={14} color="#FFFFFF" />
+                    <Text style={styles.modalPrimaryBtnText}>Register Association & Get Code</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal 3: Association Code Created Celebration Dialog */}
+      <Modal visible={!!createdAssocCode} transparent animationType="fade">
+        <View style={styles.customAlertBackdrop}>
+          <View style={styles.customAlertCard}>
+            <View style={[styles.alertIconCircle, styles.alertIconCircleSuccess]}>
+              <Feather name="award" size={32} color="#10B981" />
+            </View>
+
+            <Text style={styles.customAlertTitle}>Association Registered!</Text>
+            <Text style={styles.customAlertMessage}>
+              {createdAssocCode?.name} is now registered on ShepherdLink.
+            </Text>
+
+            {/* Generated Unique Code Box */}
+            <View style={styles.uniqueCodeCard}>
+              <Text style={styles.uniqueCodeSub}>UNIQUE ASSOCIATION CODE</Text>
+              <Text style={styles.uniqueCodeText}>{createdAssocCode?.code}</Text>
+              <Text style={styles.uniqueCodeHint}>
+                Share this code with your member pastors so they can join {createdAssocCode?.name}.
+              </Text>
+            </View>
+
+            {/* Share Code Action */}
+            <TouchableOpacity
+              style={styles.shareCodeBtn}
+              activeOpacity={0.85}
+              onPress={() => {
+                if (createdAssocCode) {
+                  handleShareCode(createdAssocCode.code, createdAssocCode.name);
+                }
+              }}
+            >
+              <Feather name="share-2" size={16} color="#FFFFFF" />
+              <Text style={styles.shareCodeBtnText}>Share Code with Pastors</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.continueToAppBtn}
+              activeOpacity={0.7}
+              onPress={() => setCreatedAssocCode(null)}
+            >
+              <Text style={styles.continueToAppBtnText}>Continue to Dashboard &rarr;</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -867,18 +1184,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  registerRow: {
+  associationActionsWrap: {
+    gap: 8,
+    marginTop: 10,
+  },
+  assocActionPill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
-    paddingVertical: 6,
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
   },
-  registerQuestion: {
-    fontSize: 13,
-    color: '#64748B',
+  assocActionPillLeader: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
   },
-  registerActionText: {
+  assocActionPillText: {
     fontSize: 13,
     fontWeight: '700',
     color: COLORS.brandTeal,
@@ -1032,7 +1357,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 36,
-    maxHeight: '90%',
+    maxHeight: '92%',
   },
   modalHeaderRow: {
     flexDirection: 'row',
@@ -1050,12 +1375,58 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
+  codeSearchRow: {
+    marginBottom: 6,
+  },
+  codeSearchInput: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: 2,
+    color: COLORS.brandNavy,
+    borderWidth: 2,
+    borderColor: COLORS.brandTeal,
+    backgroundColor: '#F0FDFA',
+  },
+  codeStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  codeStatusBadgeSuccess: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  codeStatusBadgeWarning: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  codeStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  codeStatusTextSuccess: {
+    color: '#065F46',
+  },
+  codeStatusTextWarning: {
+    color: '#92400E',
+  },
   formLabel: {
     fontSize: 13,
     fontWeight: '700',
     color: COLORS.brandNavy,
-    marginTop: 12,
-    marginBottom: 6,
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  fieldHint: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
   },
   formInput: {
     height: 48,
@@ -1088,6 +1459,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.brandNavy,
     borderColor: COLORS.brandNavy,
   },
+  assocPillHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   assocPillTitle: {
     fontSize: 14,
     fontWeight: '700',
@@ -1095,6 +1471,17 @@ const styles = StyleSheet.create({
   },
   assocPillTitleActive: {
     color: '#FFFFFF',
+  },
+  codeTag: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  codeTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#334155',
   },
   assocPillMeta: {
     fontSize: 12,
@@ -1110,21 +1497,65 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginTop: 18,
+    marginBottom: 10,
   },
   modalPrimaryBtnText: {
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  secondaryOutlineBtn: {
+  uniqueCodeCard: {
+    width: '100%',
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1.5,
+    borderColor: '#5EEAD4',
+    borderRadius: 16,
+    padding: 16,
     alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 8,
+    marginBottom: 16,
   },
-  secondaryOutlineBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
+  uniqueCodeSub: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.brandTeal,
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
+  uniqueCodeText: {
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 4,
+    color: COLORS.brandNavy,
+  },
+  uniqueCodeHint: {
+    fontSize: 12,
     color: '#64748B',
-    textDecorationLine: 'underline',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 16,
+  },
+  shareCodeBtn: {
+    width: '100%',
+    height: 48,
+    backgroundColor: '#059669',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  shareCodeBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  continueToAppBtn: {
+    paddingVertical: 8,
+  },
+  continueToAppBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.brandNavy,
   },
 });
