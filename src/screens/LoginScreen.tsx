@@ -452,12 +452,13 @@ export const LoginScreen: React.FC = () => {
 
       {/* Brand Logo Presentation */}
       <View style={styles.brandBox}>
-        <Image
-          source={require('../../assets/logo.png')}
-          style={styles.brandLogo}
-          resizeMode="contain"
-        />
-        <Text style={styles.appName}>ShepherdLink</Text>
+        <View style={styles.logoBadge}>
+          <Image
+            source={require('../../assets/logo.png')}
+            style={styles.brandLogo}
+            resizeMode="contain"
+          />
+        </View>
         <Text style={styles.tagline}>One Fold, One Shepherd</Text>
       </View>
 
@@ -469,42 +470,54 @@ export const LoginScreen: React.FC = () => {
           {/* OPTION 1: JOIN YOUR ASSOCIATION */}
           <View style={styles.actionCard}>
             <View style={styles.cardHeaderRow}>
-              <View style={styles.iconCircleTeal}>
-                <Feather name="key" size={20} color={COLORS.brandTeal} />
+              <View style={styles.iconBadgeTeal}>
+                <Ionicons name="key" size={24} color="#FFFFFF" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.cardHeading}>Join Your Association</Text>
+                <View style={styles.cardTitleBadgeRow}>
+                  <Text style={styles.cardHeading}>Join Your Association</Text>
+                  <View style={styles.pillMembers}>
+                    <Text style={styles.pillMembersText}>MEMBER</Text>
+                  </View>
+                </View>
                 <Text style={styles.cardSubtitle}>
                   Enter the unique Association Code provided by your Pastors Association leadership.
                 </Text>
               </View>
             </View>
 
-            {/* Association Code Input */}
-            <View style={[styles.codeInputWrap, codeError && styles.codeInputWrapError]}>
-              <TextInput
-                style={styles.codeTextInput}
-                placeholder="Enter Association Code (e.g. UKUPS)"
-                placeholderTextColor="#94A3B8"
-                autoCapitalize="characters"
-                autoCorrect={false}
-                value={assocCodeInput}
-                onChangeText={(text) => {
-                  setAssocCodeInput(text);
-                  if (codeError) setCodeError(null);
-                }}
-              />
-              {assocCodeInput.length > 0 && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setAssocCodeInput('');
-                    setCodeError(null);
+            {/* Association Code Input Section */}
+            <View style={styles.inputSection}>
+              <Text style={styles.inputFieldLabel}>ASSOCIATION ACCESS CODE</Text>
+              <View style={[styles.codeInputWrap, codeError && styles.codeInputWrapError]}>
+                <View style={styles.inputPrefixIcon}>
+                  <Ionicons name="shield-checkmark" size={18} color={COLORS.brandTeal} />
+                </View>
+                <TextInput
+                  style={styles.codeTextInput}
+                  placeholder="e.g. UKUPS"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  value={assocCodeInput}
+                  onChangeText={(text) => {
+                    setAssocCodeInput(text);
+                    if (codeError) setCodeError(null);
                   }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Feather name="x-circle" size={18} color="#94A3B8" />
-                </TouchableOpacity>
-              )}
+                />
+                {assocCodeInput.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setAssocCodeInput('');
+                      setCodeError(null);
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={styles.clearBtn}
+                  >
+                    <Feather name="x-circle" size={18} color="#94A3B8" />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
 
             {/* Error Message */}
@@ -545,11 +558,16 @@ export const LoginScreen: React.FC = () => {
           {/* OPTION 2: REGISTER YOUR ASSOCIATION */}
           <View style={[styles.actionCard, styles.registerCard]}>
             <View style={styles.cardHeaderRow}>
-              <View style={styles.iconCircleNavy}>
-                <Ionicons name="add-circle-outline" size={24} color={COLORS.brandNavy} />
+              <View style={styles.iconBadgeNavy}>
+                <Ionicons name="business" size={24} color="#FBBF24" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.cardHeading}>Register Your Association</Text>
+                <View style={styles.cardTitleBadgeRow}>
+                  <Text style={styles.cardHeading}>Register Your Association</Text>
+                  <View style={styles.pillLeaders}>
+                    <Text style={styles.pillLeadersText}>ADMIN</Text>
+                  </View>
+                </View>
                 <Text style={styles.cardSubtitle}>
                   Want to bring your fellowship or mandal pastors on ShepherdLink? Register a new association and become the Admin.
                 </Text>
@@ -561,8 +579,9 @@ export const LoginScreen: React.FC = () => {
               activeOpacity={0.8}
               onPress={() => setStep('REGISTER_ASSOC')}
             >
-              <Feather name="plus-circle" size={16} color={COLORS.brandNavy} />
+              <Ionicons name="add-circle" size={18} color={COLORS.brandNavy} />
               <Text style={styles.secondaryBtnText}>Register New Association</Text>
+              <Feather name="chevron-right" size={16} color={COLORS.brandNavy} style={{ marginLeft: 'auto' }} />
             </TouchableOpacity>
           </View>
         </View>
@@ -1184,25 +1203,35 @@ const styles = StyleSheet.create({
   },
   brandBox: {
     alignItems: 'center',
-    paddingTop: 4,
+    paddingTop: 6,
     paddingBottom: 16,
   },
-  brandLogo: {
-    width: 80,
-    height: 80,
+  logoBadge: {
+    width: 94,
+    height: 94,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: COLORS.brandNavy,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  appName: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: COLORS.brandNavy,
-    marginTop: 6,
-    letterSpacing: 0.5,
+  brandLogo: {
+    width: '100%',
+    height: '100%',
   },
   tagline: {
     fontSize: 13,
-    color: COLORS.muted,
-    fontWeight: '600',
-    marginTop: 2,
+    color: '#475569',
+    fontWeight: '700',
+    marginTop: 10,
+    letterSpacing: 0.5,
   },
   landingContainer: {
     gap: 16,
@@ -1210,74 +1239,134 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 20,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: COLORS.brandNavy,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 3,
     gap: 14,
   },
   registerCard: {
-    backgroundColor: '#F8FAFC',
-    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
   },
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 14,
   },
-  iconCircleTeal: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: COLORS.brandTealSoft,
+  iconBadgeTeal: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: '#009B9E',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#009B9E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  iconCircleNavy: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: COLORS.brandNavySoft,
+  iconBadgeNavy: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: COLORS.brandNavy,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: COLORS.brandNavy,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  cardTitleBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  pillMembers: {
+    backgroundColor: '#E0F7F6',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  pillMembersText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#007A7C',
+    letterSpacing: 0.5,
+  },
+  pillLeaders: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  pillLeadersText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#92400E',
+    letterSpacing: 0.5,
   },
   cardHeading: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     color: COLORS.ink,
   },
   cardSubtitle: {
     fontSize: 12,
     color: COLORS.muted,
-    marginTop: 3,
+    marginTop: 4,
     lineHeight: 17,
+  },
+  inputSection: {
+    gap: 6,
+  },
+  inputFieldLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.6,
   },
   codeInputWrap: {
     height: 52,
     borderWidth: 1.5,
     borderColor: '#CBD5E1',
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    gap: 8,
+    paddingHorizontal: 12,
+    gap: 10,
   },
   codeInputWrapError: {
     borderColor: '#EF4444',
     backgroundColor: '#FEF2F2',
   },
+  inputPrefixIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#E0F7F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   codeTextInput: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: COLORS.ink,
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+  },
+  clearBtn: {
+    padding: 4,
   },
   inlineErrorRow: {
     flexDirection: 'row',
@@ -1291,18 +1380,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   primaryBtn: {
-    height: 50,
+    height: 52,
     backgroundColor: COLORS.brandNavy,
-    borderRadius: 12,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
     shadowColor: COLORS.brandNavy,
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
   primaryBtnText: {
     fontSize: 15,
@@ -1334,15 +1423,15 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   secondaryBtn: {
-    height: 48,
-    backgroundColor: '#FFFFFF',
+    height: 50,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
     borderColor: COLORS.brandNavy,
-    borderRadius: 12,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    paddingHorizontal: 16,
+    gap: 10,
   },
   secondaryBtnText: {
     fontSize: 14,
