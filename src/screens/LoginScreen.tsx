@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   Modal,
   Image,
   ActivityIndicator,
@@ -38,6 +37,17 @@ export const LoginScreen: React.FC = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [phoneError, setPhoneError] = useState(false);
+
+  // Custom Beautiful Alert Dialog State
+  const [customAlert, setCustomAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type?: 'error' | 'success' | 'info';
+    actionText?: string;
+    onAction?: () => void;
+  } | null>(null);
 
   // Language Modal
   const [showLangModal, setShowLangModal] = useState(false);
@@ -54,19 +64,43 @@ export const LoginScreen: React.FC = () => {
     denomination: 'Independent',
   });
 
+  const handlePhoneChange = (text: string) => {
+    setPhoneNumber(text);
+    if (phoneError && text.replace(/\D/g, '').length >= 10) {
+      setPhoneError(false);
+    }
+  };
+
   const handleSendOtp = () => {
     const clean = phoneNumber.replace(/\D/g, '');
     if (clean.length < 10) {
-      Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number.');
+      setPhoneError(true);
+      setCustomAlert({
+        visible: true,
+        title: 'Invalid Mobile Number',
+        message:
+          clean.length === 0
+            ? 'Please enter your 10-digit mobile number to receive your SMS verification code.'
+            : `You entered ${clean.length} digits. A valid Indian mobile number requires exactly 10 digits.`,
+        type: 'error',
+        actionText: 'Enter 10 Digits',
+      });
       return;
     }
+    setPhoneError(false);
     setOtpCode('123456');
     setStep('OTP');
   };
 
   const handleVerifyOtp = async () => {
     if (otpCode.trim().length < 4) {
-      Alert.alert('Invalid OTP', 'Please enter the 6-digit verification code.');
+      setCustomAlert({
+        visible: true,
+        title: 'Invalid Verification Code',
+        message: 'Please enter the 6-digit code sent to your phone number.',
+        type: 'error',
+        actionText: 'Check Code',
+      });
       return;
     }
 
@@ -80,16 +114,14 @@ export const LoginScreen: React.FC = () => {
           phone: phoneNumber.replace(/\D/g, '').slice(-10),
         }));
         setLoading(false);
-        Alert.alert(
-          'Mobile Verified',
-          'Your mobile number is verified. Complete your Pastor Profile to join your Association.',
-          [
-            {
-              text: 'Complete Profile',
-              onPress: () => setShowJoinModal(true),
-            },
-          ]
-        );
+        setCustomAlert({
+          visible: true,
+          title: 'Mobile Verified',
+          message: 'Your mobile number is verified. Complete your Pastor Profile to join your Association.',
+          type: 'success',
+          actionText: 'Complete Profile',
+          onAction: () => setShowJoinModal(true),
+        });
         return;
       }
     } finally {
@@ -99,17 +131,35 @@ export const LoginScreen: React.FC = () => {
 
   const handleCompleteRegistration = async (instantEnter: boolean) => {
     if (!joinForm.name.trim()) {
-      Alert.alert('Name Required', 'Please enter your full name (e.g. Pastor Rajesh).');
+      setCustomAlert({
+        visible: true,
+        title: 'Name Required',
+        message: 'Please enter your full name (e.g. Pastor Rajesh).',
+        type: 'error',
+        actionText: 'Enter Name',
+      });
       return;
     }
     if (!joinForm.churchName.trim()) {
-      Alert.alert('Church Name Required', 'Please enter your church or ministry name.');
+      setCustomAlert({
+        visible: true,
+        title: 'Church Name Required',
+        message: 'Please enter your church or ministry name.',
+        type: 'error',
+        actionText: 'Enter Church',
+      });
       return;
     }
 
     const targetPhone = joinForm.phone.trim() || phoneNumber.replace(/\D/g, '').slice(-10);
     if (!targetPhone || targetPhone.length < 10) {
-      Alert.alert('Mobile Number Required', 'Please enter a valid 10-digit mobile number.');
+      setCustomAlert({
+        visible: true,
+        title: 'Mobile Required',
+        message: 'Please enter a valid 10-digit mobile number.',
+        type: 'error',
+        actionText: 'Enter Mobile',
+      });
       return;
     }
 
@@ -127,10 +177,6 @@ export const LoginScreen: React.FC = () => {
         });
 
         setShowJoinModal(false);
-        Alert.alert(
-          'Welcome to ShepherdLink',
-          `Your profile is ready! You are enrolled in the pastors association.`
-        );
       } else {
         await submitJoinRequest({
           name: joinForm.name.trim(),
@@ -143,14 +189,22 @@ export const LoginScreen: React.FC = () => {
         });
 
         setShowJoinModal(false);
-        Alert.alert(
-          'Request Submitted',
-          `Your membership application has been submitted to association leaders for verification.`,
-          [{ text: 'OK' }]
-        );
+        setCustomAlert({
+          visible: true,
+          title: 'Request Submitted',
+          message: 'Your membership application has been submitted to association leaders for verification.',
+          type: 'success',
+          actionText: 'Done',
+        });
       }
     } catch {
-      Alert.alert('Error', 'Could not complete registration. Please try again.');
+      setCustomAlert({
+        visible: true,
+        title: 'Registration Error',
+        message: 'Could not complete registration. Please check your connection and try again.',
+        type: 'error',
+        actionText: 'Retry',
+      });
     } finally {
       setLoading(false);
     }
@@ -202,8 +256,13 @@ export const LoginScreen: React.FC = () => {
               </Text>
             </View>
 
-            {/* Unified Phone Input Field */}
-            <View style={styles.unifiedPhoneInput}>
+            {/* Unified Phone Input Field with Error Highlight */}
+            <View
+              style={[
+                styles.unifiedPhoneInput,
+                phoneError && styles.unifiedPhoneInputError,
+              ]}
+            >
               <View style={styles.prefixBlock}>
                 <Text style={styles.flagIcon}>🇮🇳</Text>
                 <Text style={styles.countryCodeText}>+91</Text>
@@ -215,28 +274,45 @@ export const LoginScreen: React.FC = () => {
                 placeholderTextColor="#94A3B8"
                 keyboardType="phone-pad"
                 value={phoneNumber}
-                onChangeText={setPhoneNumber}
+                onChangeText={handlePhoneChange}
                 maxLength={10}
               />
               {phoneNumber.length > 0 && (
                 <TouchableOpacity
-                  onPress={() => setPhoneNumber('')}
+                  onPress={() => {
+                    setPhoneNumber('');
+                    setPhoneError(false);
+                  }}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   style={styles.clearBtn}
                 >
-                  <Feather name="x-circle" size={16} color="#94A3B8" />
+                  <Feather name="x-circle" size={17} color="#94A3B8" />
                 </TouchableOpacity>
               )}
             </View>
 
-            {/* Primary Action Button */}
+            {/* Inline Error Helper */}
+            {phoneError && (
+              <View style={styles.inlineErrorRow}>
+                <Feather name="alert-circle" size={13} color="#EF4444" />
+                <Text style={styles.inlineErrorText}>
+                  {phoneNumber.length === 0
+                    ? 'Mobile number is required'
+                    : `Please enter all 10 digits (${phoneNumber.replace(/\D/g, '').length}/10)`}
+                </Text>
+              </View>
+            )}
+
+            {/* Beautiful Primary Action Button */}
             <TouchableOpacity
               style={styles.primaryBtn}
               activeOpacity={0.85}
               onPress={handleSendOtp}
             >
               <Text style={styles.primaryBtnText}>Get OTP Verification</Text>
-              <Feather name="arrow-right" size={17} color="#FFFFFF" />
+              <View style={styles.btnArrowCircle}>
+                <Feather name="arrow-right" size={15} color="#FFFFFF" />
+              </View>
             </TouchableOpacity>
 
             {/* Clean Register Prompt */}
@@ -295,18 +371,26 @@ export const LoginScreen: React.FC = () => {
               ) : (
                 <>
                   <Text style={styles.primaryBtnText}>Verify OTP & Sign In</Text>
-                  <Feather name="check" size={17} color="#FFFFFF" />
+                  <View style={styles.btnArrowCircle}>
+                    <Feather name="check" size={15} color="#FFFFFF" />
+                  </View>
                 </>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() =>
-                Alert.alert('Code Resent', `A new OTP has been sent to +91 ${phoneNumber}`)
+                setCustomAlert({
+                  visible: true,
+                  title: 'OTP Resent',
+                  message: `A fresh 6-digit verification code has been dispatched to +91 ${phoneNumber}.`,
+                  type: 'info',
+                  actionText: 'Got It',
+                })
               }
               style={styles.resendBtn}
             >
-              <Text style={styles.resendText}>Resend OTP</Text>
+              <Text style={styles.resendText}>Resend OTP Code</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -317,6 +401,70 @@ export const LoginScreen: React.FC = () => {
         <Feather name="shield" size={13} color="#94A3B8" />
         <Text style={styles.securityText}>Verified Pastors Association Network</Text>
       </View>
+
+      {/* Custom Beautiful Alert / Popup Dialog */}
+      <Modal visible={!!customAlert?.visible} transparent animationType="fade">
+        <View style={styles.customAlertBackdrop}>
+          <View style={styles.customAlertCard}>
+            <View
+              style={[
+                styles.alertIconCircle,
+                customAlert?.type === 'error' && styles.alertIconCircleError,
+                customAlert?.type === 'success' && styles.alertIconCircleSuccess,
+                customAlert?.type === 'info' && styles.alertIconCircleInfo,
+              ]}
+            >
+              <Feather
+                name={
+                  customAlert?.type === 'error'
+                    ? 'alert-circle'
+                    : customAlert?.type === 'success'
+                    ? 'check-circle'
+                    : 'info'
+                }
+                size={28}
+                color={
+                  customAlert?.type === 'error'
+                    ? '#EF4444'
+                    : customAlert?.type === 'success'
+                    ? '#10B981'
+                    : COLORS.brandTeal
+                }
+              />
+            </View>
+
+            <Text style={styles.customAlertTitle}>{customAlert?.title}</Text>
+            <Text style={styles.customAlertMessage}>{customAlert?.message}</Text>
+
+            {customAlert?.type === 'error' && (
+              <View style={styles.alertTipBox}>
+                <Text style={styles.alertTipText}>
+                  💡 Please enter a 10-digit number without +91 or spaces
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.customAlertBtn,
+                customAlert?.type === 'error' && styles.customAlertBtnError,
+              ]}
+              activeOpacity={0.85}
+              onPress={() => {
+                const action = customAlert?.onAction;
+                setCustomAlert(null);
+                if (action) {
+                  action();
+                }
+              }}
+            >
+              <Text style={styles.customAlertBtnText}>
+                {customAlert?.actionText || 'Okay, Got It'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal: Language Selection */}
       <Modal visible={showLangModal} transparent animationType="fade">
@@ -493,9 +641,9 @@ export const LoginScreen: React.FC = () => {
 
               {/* Primary Action: Create Account & Enter */}
               <TouchableOpacity
-                style={styles.primaryBtn}
+                style={styles.modalPrimaryBtn}
                 onPress={() => handleCompleteRegistration(true)}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
                 disabled={loading}
               >
                 {loading ? (
@@ -503,7 +651,7 @@ export const LoginScreen: React.FC = () => {
                 ) : (
                   <>
                     <FontAwesome5 name="check" size={14} color="#FFFFFF" />
-                    <Text style={styles.primaryBtnText}>
+                    <Text style={styles.modalPrimaryBtnText}>
                       Create Account & Join {selectedAssoc?.mandal || 'Association'}
                     </Text>
                   </>
@@ -601,12 +749,16 @@ const styles = StyleSheet.create({
   unifiedPhoneInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 54,
+    height: 56,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: '#F8FAFC',
     paddingHorizontal: 14,
+  },
+  unifiedPhoneInputError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
   },
   prefixBlock: {
     flexDirection: 'row',
@@ -637,21 +789,47 @@ const styles = StyleSheet.create({
   clearBtn: {
     padding: 4,
   },
+  inlineErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: -6,
+    paddingHorizontal: 4,
+  },
+  inlineErrorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
   primaryBtn: {
-    height: 52,
+    height: 54,
     backgroundColor: COLORS.brandNavy,
-    borderRadius: 14,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 4,
+    paddingHorizontal: 20,
+    gap: 12,
+    marginTop: 6,
+    shadowColor: COLORS.brandNavy,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    elevation: 4,
   },
   primaryBtnText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
+  },
+  btnArrowCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   registerRow: {
     flexDirection: 'row',
@@ -686,12 +864,12 @@ const styles = StyleSheet.create({
     color: COLORS.brandTeal,
   },
   otpInput: {
-    height: 54,
+    height: 56,
     borderWidth: 1.5,
     borderColor: COLORS.brandTeal,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
     textAlign: 'center',
     letterSpacing: 10,
@@ -717,6 +895,94 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94A3B8',
     fontWeight: '500',
+  },
+  customAlertBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  customAlertCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  alertIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  alertIconCircleError: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FEE2E2',
+  },
+  alertIconCircleSuccess: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1.5,
+    borderColor: '#D1FAE5',
+  },
+  alertIconCircleInfo: {
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1.5,
+    borderColor: '#CCFBF1',
+  },
+  customAlertTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  customAlertMessage: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  alertTipBox: {
+    width: '100%',
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 18,
+  },
+  alertTipText: {
+    fontSize: 12,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  customAlertBtn: {
+    width: '100%',
+    height: 48,
+    backgroundColor: COLORS.brandNavy,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customAlertBtnError: {
+    backgroundColor: '#0F172A',
+  },
+  customAlertBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   modalBackdrop: {
     flex: 1,
@@ -831,6 +1097,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginTop: 2,
+  },
+  modalPrimaryBtn: {
+    height: 50,
+    backgroundColor: COLORS.brandNavy,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 18,
+  },
+  modalPrimaryBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   secondaryOutlineBtn: {
     alignItems: 'center',
