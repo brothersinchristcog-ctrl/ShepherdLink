@@ -5,7 +5,6 @@ import {
   Image,
   StyleSheet,
   Animated,
-  ActivityIndicator,
   Dimensions,
   StatusBar,
 } from 'react-native';
@@ -27,12 +26,14 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
   const [logoTranslateY] = useState(() => new Animated.Value(-60));
   const [logoScaleAnim] = useState(() => new Animated.Value(0.9));
 
+  // Pulse animation for logo acting as the loading indicator
+  const [pulseScaleAnim] = useState(() => new Animated.Value(1));
+
   // Tagline animations: slide up slightly (12 -> 0) + fade in shortly after logo arrives
   const [taglineFadeAnim] = useState(() => new Animated.Value(0));
   const [taglineTranslateY] = useState(() => new Animated.Value(12));
 
-  // Footer and container fade out
-  const [footerFadeAnim] = useState(() => new Animated.Value(0));
+  // Whole screen fade out transition
   const [containerFade] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
@@ -55,9 +56,25 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
         tension: 50,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]).start(() => {
+      // 2. Continuous breathing pulse loop — the logo itself is the loading symbol
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseScaleAnim, {
+            toValue: 1.05,
+            duration: 750,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseScaleAnim, {
+            toValue: 1.0,
+            duration: 750,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
 
-    // 2. Tagline enters right after the logo lands (delay: 400ms)
+    // 3. Tagline enters right after the logo lands (delay: 400ms)
     Animated.parallel([
       Animated.timing(taglineFadeAnim, {
         toValue: 1,
@@ -72,15 +89,9 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
         delay: 400,
         useNativeDriver: true,
       }),
-      Animated.timing(footerFadeAnim, {
-        toValue: 1,
-        duration: 500,
-        delay: 600,
-        useNativeDriver: true,
-      }),
     ]).start();
 
-    // 3. Smooth container fade out transition after minDurationMs
+    // 4. Smooth container fade out transition after minDurationMs
     const timer = setTimeout(() => {
       Animated.timing(containerFade, {
         toValue: 0,
@@ -96,22 +107,24 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
     return () => clearTimeout(timer);
   }, [
     containerFade,
-    footerFadeAnim,
     logoFadeAnim,
     logoScaleAnim,
     logoTranslateY,
     minDurationMs,
     onFinish,
+    pulseScaleAnim,
     taglineFadeAnim,
     taglineTranslateY,
   ]);
+
+  const combinedScale = Animated.multiply(logoScaleAnim, pulseScaleAnim);
 
   return (
     <Animated.View style={[styles.container, { opacity: containerFade }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <View style={styles.contentContainer}>
-        {/* Animated Brand Logo (Slides top to bottom) */}
+        {/* Animated Brand Logo (Slides top to bottom, then pulses as loading indicator) */}
         <Animated.View
           style={[
             styles.logoContainer,
@@ -119,7 +132,7 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
               opacity: logoFadeAnim,
               transform: [
                 { translateY: logoTranslateY },
-                { scale: logoScaleAnim },
+                { scale: combinedScale },
               ],
             },
           ]}
@@ -131,7 +144,7 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
           />
         </Animated.View>
 
-        {/* Animated Tagline (Moved closer up to the logo) */}
+        {/* Animated Tagline */}
         <Animated.View
           style={[
             styles.taglineContainer,
@@ -144,12 +157,6 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
           <Text style={styles.tagline}>One Fold, One Shepherd</Text>
         </Animated.View>
       </View>
-
-      {/* Bottom Footer & Progress */}
-      <Animated.View style={[styles.footerContainer, { opacity: footerFadeAnim }]}>
-        <ActivityIndicator size="small" color={COLORS.brandTeal} style={styles.loader} />
-        <Text style={styles.footerNote}>Connecting Shepherds • Serving Together</Text>
-      </Animated.View>
     </Animated.View>
   );
 };
@@ -163,12 +170,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: '#FFFFFF',
     zIndex: 9999,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 50,
   },
   contentContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
@@ -185,24 +190,12 @@ const styles = StyleSheet.create({
   },
   taglineContainer: {
     alignItems: 'center',
-    marginTop: -10, // Moved up tightly under the ShepherdLink wordmark
+    marginTop: -10, // Snugly under the ShepherdLink wordmark
   },
   tagline: {
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.brandNavy,
     letterSpacing: 0.5,
-  },
-  footerContainer: {
-    alignItems: 'center',
-    paddingBottom: 20,
-  },
-  loader: {
-    marginBottom: 10,
-  },
-  footerNote: {
-    fontSize: 12,
-    color: COLORS.muted,
-    fontWeight: '500',
   },
 });
