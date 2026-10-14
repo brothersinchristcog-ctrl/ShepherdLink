@@ -20,38 +20,67 @@ const { width } = Dimensions.get('window');
 
 export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
   onFinish,
-  minDurationMs = 2200,
+  minDurationMs = 2400,
 }) => {
-  const [fadeAnim] = useState(() => new Animated.Value(0));
-  const [scaleAnim] = useState(() => new Animated.Value(0.85));
-  const [textFadeAnim] = useState(() => new Animated.Value(0));
+  // Logo animations: slide from top to bottom (-60 -> 0) + fade in + subtle scale
+  const [logoFadeAnim] = useState(() => new Animated.Value(0));
+  const [logoTranslateY] = useState(() => new Animated.Value(-60));
+  const [logoScaleAnim] = useState(() => new Animated.Value(0.9));
+
+  // Tagline animations: slide up slightly (12 -> 0) + fade in shortly after logo arrives
+  const [taglineFadeAnim] = useState(() => new Animated.Value(0));
+  const [taglineTranslateY] = useState(() => new Animated.Value(12));
+
+  // Footer and container fade out
+  const [footerFadeAnim] = useState(() => new Animated.Value(0));
   const [containerFade] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
-    // 1. Fade in and scale up the logo
+    // 1. Logo comes from top to bottom with spring and fade in
     Animated.parallel([
-      Animated.timing(fadeAnim, {
+      Animated.timing(logoFadeAnim, {
         toValue: 1,
-        duration: 800,
+        duration: 700,
         useNativeDriver: true,
       }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
+      Animated.spring(logoTranslateY, {
+        toValue: 0,
         friction: 6,
-        tension: 40,
+        tension: 45,
+        useNativeDriver: true,
+      }),
+      Animated.spring(logoScaleAnim, {
+        toValue: 1,
+        friction: 7,
+        tension: 50,
         useNativeDriver: true,
       }),
     ]).start();
 
-    // 2. Fade in tagline shortly after
-    Animated.timing(textFadeAnim, {
-      toValue: 1,
-      duration: 600,
-      delay: 400,
-      useNativeDriver: true,
-    }).start();
+    // 2. Tagline enters right after the logo lands (delay: 400ms)
+    Animated.parallel([
+      Animated.timing(taglineFadeAnim, {
+        toValue: 1,
+        duration: 550,
+        delay: 400,
+        useNativeDriver: true,
+      }),
+      Animated.spring(taglineTranslateY, {
+        toValue: 0,
+        friction: 7,
+        tension: 50,
+        delay: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(footerFadeAnim, {
+        toValue: 1,
+        duration: 500,
+        delay: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-    // 3. Smooth fade out transition after minDurationMs
+    // 3. Smooth container fade out transition after minDurationMs
     const timer = setTimeout(() => {
       Animated.timing(containerFade, {
         toValue: 0,
@@ -65,20 +94,33 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
     }, minDurationMs);
 
     return () => clearTimeout(timer);
-  }, [containerFade, fadeAnim, minDurationMs, onFinish, scaleAnim, textFadeAnim]);
+  }, [
+    containerFade,
+    footerFadeAnim,
+    logoFadeAnim,
+    logoScaleAnim,
+    logoTranslateY,
+    minDurationMs,
+    onFinish,
+    taglineFadeAnim,
+    taglineTranslateY,
+  ]);
 
   return (
     <Animated.View style={[styles.container, { opacity: containerFade }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <View style={styles.contentContainer}>
-        {/* Animated Brand Logo */}
+        {/* Animated Brand Logo (Slides top to bottom) */}
         <Animated.View
           style={[
             styles.logoContainer,
             {
-              opacity: fadeAnim,
-              transform: [{ scale: scaleAnim }],
+              opacity: logoFadeAnim,
+              transform: [
+                { translateY: logoTranslateY },
+                { scale: logoScaleAnim },
+              ],
             },
           ]}
         >
@@ -89,17 +131,22 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
           />
         </Animated.View>
 
-        {/* Animated Brand Tagline & Motto */}
-        <Animated.View style={[styles.taglineContainer, { opacity: textFadeAnim }]}>
+        {/* Animated Tagline (Moved closer up to the logo) */}
+        <Animated.View
+          style={[
+            styles.taglineContainer,
+            {
+              opacity: taglineFadeAnim,
+              transform: [{ translateY: taglineTranslateY }],
+            },
+          ]}
+        >
           <Text style={styles.tagline}>One Fold, One Shepherd</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>PASTORS ASSOCIATION NETWORK</Text>
-          </View>
         </Animated.View>
       </View>
 
       {/* Bottom Footer & Progress */}
-      <Animated.View style={[styles.footerContainer, { opacity: textFadeAnim }]}>
+      <Animated.View style={[styles.footerContainer, { opacity: footerFadeAnim }]}>
         <ActivityIndicator size="small" color={COLORS.brandTeal} style={styles.loader} />
         <Text style={styles.footerNote}>Connecting Shepherds • Serving Together</Text>
       </Animated.View>
@@ -138,35 +185,20 @@ const styles = StyleSheet.create({
   },
   taglineContainer: {
     alignItems: 'center',
-    marginTop: 18,
+    marginTop: -10, // Moved up tightly under the ShepherdLink wordmark
   },
   tagline: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.brandNavy,
     letterSpacing: 0.5,
-  },
-  badge: {
-    backgroundColor: COLORS.brandTealSoft,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: '#B2E5E7',
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.brandTeal,
-    letterSpacing: 1.2,
   },
   footerContainer: {
     alignItems: 'center',
     paddingBottom: 20,
   },
   loader: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   footerNote: {
     fontSize: 12,

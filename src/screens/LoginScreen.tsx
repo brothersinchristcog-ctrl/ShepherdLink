@@ -191,7 +191,6 @@ export const LoginScreen: React.FC = () => {
           resizeMode="contain"
         />
         <Text style={styles.tagline}>One Fold, One Shepherd</Text>
-        <Text style={styles.brandSub}>Pastors Association Network</Text>
       </View>
 
       {/* Main Login Card */}
@@ -582,15 +581,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.brandNavy,
-    marginTop: -4,
-  },
-  brandSub: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: COLORS.brandTeal,
-    letterSpacing: 0.5,
-    marginTop: 2,
-    textTransform: 'uppercase',
+    marginTop: -8,
   },
   loginCard: {
     backgroundColor: '#FFFFFF',
