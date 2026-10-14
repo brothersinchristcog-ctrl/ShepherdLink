@@ -19,83 +19,64 @@ const { width } = Dimensions.get('window');
 
 export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
   onFinish,
-  minDurationMs = 2400,
+  minDurationMs = 3800, // Increased splash screen duration as requested
 }) => {
-  // Logo animations: slide from top to bottom (-60 -> 0) + fade in + subtle scale
+  // Logo entrance: slides smoothly from top to bottom (-80 -> 0) + fades in (0 -> 1)
   const [logoFadeAnim] = useState(() => new Animated.Value(0));
-  const [logoTranslateY] = useState(() => new Animated.Value(-60));
-  const [logoScaleAnim] = useState(() => new Animated.Value(0.9));
+  const [logoTranslateY] = useState(() => new Animated.Value(-80));
+  const [logoScaleAnim] = useState(() => new Animated.Value(0.92));
 
-  // Pulse animation for logo acting as the loading indicator
-  const [pulseScaleAnim] = useState(() => new Animated.Value(1));
-
-  // Tagline animations: slide up slightly (12 -> 0) + fade in shortly after logo arrives
+  // Tagline entrance: fades and glides gently into place under the logo
   const [taglineFadeAnim] = useState(() => new Animated.Value(0));
-  const [taglineTranslateY] = useState(() => new Animated.Value(12));
+  const [taglineTranslateY] = useState(() => new Animated.Value(15));
 
-  // Whole screen fade out transition
+  // Whole splash screen fade out transition
   const [containerFade] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
-    // 1. Logo comes from top to bottom with spring and fade in
+    // 1. Logo comes from top to bottom with a smooth spring and settles firmly in place
     Animated.parallel([
       Animated.timing(logoFadeAnim, {
         toValue: 1,
-        duration: 700,
+        duration: 800,
         useNativeDriver: true,
       }),
       Animated.spring(logoTranslateY, {
         toValue: 0,
-        friction: 6,
-        tension: 45,
+        friction: 7,
+        tension: 40,
         useNativeDriver: true,
       }),
       Animated.spring(logoScaleAnim, {
         toValue: 1,
-        friction: 7,
-        tension: 50,
+        friction: 8,
+        tension: 45,
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      // 2. Continuous breathing pulse loop — the logo itself is the loading symbol
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseScaleAnim, {
-            toValue: 1.05,
-            duration: 750,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseScaleAnim, {
-            toValue: 1.0,
-            duration: 750,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    });
+    ]).start();
 
-    // 3. Tagline enters right after the logo lands (delay: 400ms)
+    // 2. Tagline enters smoothly shortly after the logo settles
     Animated.parallel([
       Animated.timing(taglineFadeAnim, {
         toValue: 1,
-        duration: 550,
-        delay: 400,
+        duration: 600,
+        delay: 500,
         useNativeDriver: true,
       }),
       Animated.spring(taglineTranslateY, {
         toValue: 0,
         friction: 7,
-        tension: 50,
-        delay: 400,
+        tension: 45,
+        delay: 500,
         useNativeDriver: true,
       }),
     ]).start();
 
-    // 4. Smooth container fade out transition after minDurationMs
+    // 3. Keep the branded splash screen visible for minDurationMs (3.8s) before fading out smoothly
     const timer = setTimeout(() => {
       Animated.timing(containerFade, {
         toValue: 0,
-        duration: 400,
+        duration: 500,
         useNativeDriver: true,
       }).start(() => {
         if (onFinish) {
@@ -112,19 +93,16 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
     logoTranslateY,
     minDurationMs,
     onFinish,
-    pulseScaleAnim,
     taglineFadeAnim,
     taglineTranslateY,
   ]);
-
-  const combinedScale = Animated.multiply(logoScaleAnim, pulseScaleAnim);
 
   return (
     <Animated.View style={[styles.container, { opacity: containerFade }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <View style={styles.contentContainer}>
-        {/* Animated Brand Logo (Slides top to bottom, then pulses as loading indicator) */}
+        {/* Animated Brand Logo (Glides top to bottom, then stays crisp and steady) */}
         <Animated.View
           style={[
             styles.logoContainer,
@@ -132,7 +110,7 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
               opacity: logoFadeAnim,
               transform: [
                 { translateY: logoTranslateY },
-                { scale: combinedScale },
+                { scale: logoScaleAnim },
               ],
             },
           ]}
@@ -144,7 +122,7 @@ export const SplashScreenView: React.FC<SplashScreenViewProps> = ({
           />
         </Animated.View>
 
-        {/* Animated Tagline */}
+        {/* Tagline */}
         <Animated.View
           style={[
             styles.taglineContainer,
@@ -190,7 +168,7 @@ const styles = StyleSheet.create({
   },
   taglineContainer: {
     alignItems: 'center',
-    marginTop: -10, // Snugly under the ShepherdLink wordmark
+    marginTop: -10, // Snugly right under the ShepherdLink wordmark
   },
   tagline: {
     fontSize: 16,
