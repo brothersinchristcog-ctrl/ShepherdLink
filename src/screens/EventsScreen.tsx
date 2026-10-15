@@ -155,10 +155,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.ground,
   },
   container: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 28,
     gap: 14,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   topHeader: {
     flexDirection: 'row',

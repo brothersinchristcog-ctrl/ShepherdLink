@@ -2,6 +2,7 @@ import React from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -13,8 +14,27 @@ import { DateBox } from '../components/DateBox';
 import { Tag } from '../components/Tag';
 import { COLORS } from '../constants/theme';
 
+const getTimeGreeting = (): string => {
+  const currentHour = new Date().getHours();
+  if (currentHour >= 4 && currentHour < 12) {
+    return 'Good morning,';
+  } else if (currentHour >= 12 && currentHour < 17) {
+    return 'Good afternoon,';
+  } else if (currentHour >= 17 && currentHour < 21) {
+    return 'Good evening,';
+  } else {
+    return 'Good night,';
+  }
+};
+
 export const HomeScreen: React.FC = () => {
-  const { currentUser, navigateTo, events, notices, logout } = useApp();
+  const {
+    currentUser,
+    currentAssociation,
+    navigateTo,
+    events,
+    notices,
+  } = useApp();
 
   const nextMeeting = events.find((e) => e.isMyAssociation) || events[0];
 
@@ -40,48 +60,41 @@ export const HomeScreen: React.FC = () => {
           activeOpacity={0.8}
           onPress={() => navigateTo('profile')}
         >
-          <Text style={styles.greeting}>Good evening,</Text>
+          <Text style={styles.greeting}>{getTimeGreeting()}</Text>
           <Text style={styles.pastorName} numberOfLines={1}>{currentUser.name}</Text>
         </TouchableOpacity>
         <View style={styles.headerActions}>
           <TouchableOpacity
-            style={styles.iconBtn}
+            style={styles.notificationBtn}
             activeOpacity={0.7}
             onPress={() => Alert.alert('Notifications', 'All association circulars and notices are up to date.')}
           >
-            <Feather name="bell" size={20} color={COLORS.ink} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.iconBtn, styles.logoutBtn]}
-            activeOpacity={0.7}
-            onPress={() => {
-              Alert.alert('Sign Out', `Are you sure you want to log out from ${currentUser.name}?`, [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Log Out', style: 'destructive', onPress: logout },
-              ]);
-            }}
-          >
-            <Feather name="log-out" size={18} color="#DC2626" />
+            <Ionicons name="notifications-outline" size={20} color={COLORS.ink} />
+            <View style={styles.notificationBadgeDot} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Featured Association Card */}
+      {/* Clean Featured Association Card */}
       <View style={styles.associationCard}>
-        <Text style={styles.monoHeading}>MY ASSOCIATION</Text>
-        <Text style={styles.associationName}>{currentUser.association}</Text>
-        <Text style={styles.associationLocation}>
-          {currentUser.district} › {currentUser.state} › {currentUser.country}
-        </Text>
-        <TouchableOpacity
-          style={styles.viewMembersBtn}
-          onPress={() => navigateTo('directory')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.viewMembersText}>
-            View {currentUser.memberCount} member pastors ›
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.assocBrandRow}>
+          {currentAssociation?.logoUrl ? (
+            <Image
+              source={{ uri: currentAssociation.logoUrl }}
+              style={styles.assocLogoThumb}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.assocLogoPlaceholder}>
+              <Ionicons name="shield" size={26} color={COLORS.brandTeal} />
+            </View>
+          )}
+          <View style={styles.assocTextWrap}>
+            <Text style={styles.associationName} numberOfLines={2}>
+              {currentUser.association}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* 4-Item Quick Action Grid */}
@@ -192,10 +205,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.ground,
   },
   container: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 24,
     gap: 14,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   headerRow: {
     flexDirection: 'row',
@@ -219,8 +235,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   greeting: {
-    fontSize: 13,
-    color: COLORS.muted,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0D9488',
+    letterSpacing: 0.2,
   },
   pastorName: {
     fontSize: 18,
@@ -230,54 +248,80 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  iconBtn: {
+  notificationBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    borderWidth: 1,
-    borderColor: COLORS.field,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    position: 'relative',
   },
-  logoutBtn: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FEE2E2',
+  notificationBadgeDot: {
+    position: 'absolute',
+    top: 9,
+    right: 11,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: COLORS.brandTeal,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   associationCard: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 16,
-    padding: 18,
-    gap: 6,
+    backgroundColor: '#0F2F4A',
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#0F2F4A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  monoHeading: {
-    fontFamily: 'System',
-    fontSize: 11,
-    color: '#FFFFFF',
-    opacity: 0.85,
-    letterSpacing: 0.8,
+  assocBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  assocLogoThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  assocLogoPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  assocTextWrap: {
+    flex: 1,
+    justifyContent: 'center',
   },
   associationName: {
-    fontSize: 19,
+    fontSize: 17,
     fontWeight: '800',
     color: '#FFFFFF',
-  },
-  associationLocation: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    opacity: 0.85,
-  },
-  viewMembersBtn: {
-    marginTop: 6,
-    alignSelf: 'flex-start',
-  },
-  viewMembersText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
+    letterSpacing: 0.2,
+    lineHeight: 23,
   },
   grid: {
     flexDirection: 'row',

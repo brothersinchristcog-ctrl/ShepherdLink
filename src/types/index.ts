@@ -3,6 +3,7 @@ export type ScreenName =
   | 'home'
   | 'directory'
   | 'profile'
+  | 'pastor-detail'
   | 'events'
   | 'prayer'
   | 'create'
@@ -80,6 +81,8 @@ export interface Association {
   district: string;
   mandal: string;
   village?: string;
+  houseNumber?: string;
+  logoUrl?: string;
   memberCount: number;
   establishedYear: string;
   isVerified: boolean;
@@ -92,6 +95,8 @@ export interface Association {
 export interface Pastor {
   id: string;
   name: string;
+  gender?: 'Male' | 'Female' | 'Other' | string;
+  dateOfBirth?: string;
   associationId: string;
   associationName: string;
   associationCode?: string;
@@ -103,6 +108,7 @@ export interface Pastor {
   mandal: string;
   district: string;
   state: string;
+  houseNumber?: string;
   role: PastorRole;
   phone: string;
   churchAddress: string;

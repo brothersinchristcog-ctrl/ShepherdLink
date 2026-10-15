@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ScreenName,
   TabName,
@@ -14,6 +16,7 @@ import {
   getDefaultPermissionsForRole,
 } from '../types';
 import { FirestoreService } from '../services/firestoreService';
+import { generateMeaningfulCode } from '../utils/codeGenerator';
 
 interface AppContextType {
   // Navigation & screens
@@ -28,18 +31,23 @@ interface AppContextType {
   currentAssociation: Association;
   setCurrentAssociation: (assoc: Association) => void;
   switchAssociation: (associationId: string) => void;
-  registerAssociation: (data: {
-    name: string;
-    code?: string;
-    country?: string;
-    state: string;
-    district: string;
-    mandal: string;
-    village?: string;
-    leaderName: string;
-    leaderPhone: string;
-    establishedYear?: string;
-  }) => Promise<Association>;
+  registerAssociation: (
+    data: {
+      name: string;
+      code?: string;
+      country?: string;
+      state: string;
+      district: string;
+      mandal: string;
+      village?: string;
+      houseNumber?: string;
+      logoUrl?: string;
+      leaderName: string;
+      leaderPhone: string;
+      establishedYear?: string;
+    },
+    autoNavigateToHome?: boolean
+  ) => Promise<Association>;
   findAssociationByCode: (code: string) => Association | null;
 
   // Current logged in user info
@@ -59,20 +67,30 @@ interface AppContextType {
   loggedPastor: Pastor | null;
   setLoggedPastor: (pastor: Pastor | null) => void;
   isLoggedIn: boolean;
-  loginWithPhone: (phoneNumber: string, targetAssociationId?: string) => boolean;
+  loginWithPhone: (
+    phoneNumber: string,
+    targetAssociationId?: string,
+    autoNavigate?: boolean
+  ) => boolean;
   checkMemberExists: (phoneNumber: string, associationId: string) => Pastor | null;
-  registerPastor: (data: {
-    name: string;
-    phone: string;
-    churchName: string;
-    associationId?: string;
-    associationCode?: string;
-    village?: string;
-    mandal?: string;
-    district?: string;
-    state?: string;
-    denomination?: string;
-  }) => Promise<Pastor>;
+  registerPastor: (
+    data: {
+      name: string;
+      phone: string;
+      churchName: string;
+      associationId?: string;
+      associationCode?: string;
+      village?: string;
+      mandal?: string;
+      district?: string;
+      state?: string;
+      denomination?: string;
+      houseNumber?: string;
+      gender?: 'Male' | 'Female' | 'Other' | 'Others' | string;
+      dateOfBirth?: string;
+    },
+    autoNavigate?: boolean
+  ) => Promise<Pastor>;
   submitJoinRequest: (data: {
     name: string;
     phone: string;
@@ -83,6 +101,7 @@ interface AppContextType {
     district?: string;
   }) => Promise<boolean>;
   logout: () => void;
+  forceLogout: (reason?: string) => void;
 
   // Admin member & role management
   updatePastorRoleAndPermissions: (
@@ -99,6 +118,8 @@ interface AppContextType {
     mandal?: string;
     district?: string;
     denomination?: string;
+    gender?: 'Male' | 'Female' | 'Other' | 'Others' | string;
+    dateOfBirth?: string;
     permissions?: Partial<PastorPermissions>;
   }) => Promise<Pastor>;
 
@@ -143,6 +164,7 @@ const TAB_MAP: Record<ScreenName, TabName> = {
   home: 'home',
   directory: 'directory',
   profile: 'profile',
+  'pastor-detail': 'directory',
   events: 'events',
   create: 'events',
   attendance: 'events',
@@ -162,6 +184,41 @@ const DEFAULT_ASSOCIATION: Association = {
   isVerified: false,
 };
 
+export const SESSION_STORAGE_KEY = '@shepherdlink_persistent_user_session_v1';
+
+export interface StoredUserSession {
+  pastorId: string;
+  pastorPhone: string;
+  associationId: string;
+  pastorData: Pastor;
+  associationData: Association;
+  savedAt: string;
+}
+
+export const persistUserSession = async (pastor: Pastor, assoc: Association) => {
+  try {
+    const payload: StoredUserSession = {
+      pastorId: pastor.id,
+      pastorPhone: pastor.phone,
+      associationId: assoc.id,
+      pastorData: pastor,
+      associationData: assoc,
+      savedAt: new Date().toISOString(),
+    };
+    await AsyncStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.warn('⚠️ Failed to save login session to AsyncStorage:', err);
+  }
+};
+
+export const clearUserSession = async () => {
+  try {
+    await AsyncStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch (err) {
+    console.warn('⚠️ Failed to clear login session from AsyncStorage:', err);
+  }
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('login');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
@@ -173,6 +230,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentAssociation, setCurrentAssociation] = useState<Association>(DEFAULT_ASSOCIATION);
 
   const [allPastors, setAllPastors] = useState<Pastor[]>([]);
+  const [loggedPastor, setLoggedPastor] = useState<Pastor | null>(null);
   const [selectedPastor, setSelectedPastor] = useState<Pastor | null>(null);
 
   const [allEvents, setAllEvents] = useState<AssociationEvent[]>([]);
@@ -185,24 +243,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Initial attendance
   const [attendanceMap, setAttendanceMap] = useState<Record<string, boolean>>({});
 
-  // Load from Firestore on mount
+  // Restore persistent login session & load dataset from Firestore
   useEffect(() => {
-    async function loadData() {
+    async function restoreSessionAndLoadData() {
+      let storedSession: StoredUserSession | null = null;
+
+      // 1. Immediately read persistent session from AsyncStorage (zero delay)
       try {
-        const fetchedAssocs = await FirestoreService.getAssociations();
+        const rawSession = await AsyncStorage.getItem(SESSION_STORAGE_KEY);
+        if (rawSession) {
+          const parsed = JSON.parse(rawSession) as StoredUserSession;
+          if (parsed && parsed.pastorData && parsed.associationData) {
+            storedSession = parsed;
+            setLoggedPastor(parsed.pastorData);
+            setSelectedPastor(parsed.pastorData);
+            setCurrentAssociation(parsed.associationData);
+            setIsLoggedIn(true);
+            setCurrentScreen('home');
+          }
+        }
+      } catch (storageErr) {
+        console.warn('⚠️ Error reading stored session from AsyncStorage:', storageErr);
+      }
+
+      // 2. Fetch fresh data from Firestore in the background
+      try {
+        const [fetchedAssocs, fetchedPastors] = await Promise.all([
+          FirestoreService.getAssociations(),
+          FirestoreService.getAllPastors(),
+        ]);
+
         if (fetchedAssocs.length > 0) {
           setAssociations(fetchedAssocs);
-          setCurrentAssociation(fetchedAssocs[0]);
+          if (!storedSession) {
+            setCurrentAssociation(fetchedAssocs[0]);
+          }
         }
-        const fetchedPastors = await FirestoreService.getAllPastors();
         if (fetchedPastors.length > 0) {
           setAllPastors(fetchedPastors);
         }
+
+        // 3. Re-verify & sync active session with fresh database data
+        if (storedSession?.pastorId) {
+          const freshPastor = fetchedPastors.find((p) => p.id === storedSession!.pastorId);
+          const assocId = freshPastor?.associationId || storedSession!.associationId;
+          const freshAssoc = fetchedAssocs.find((a) => a.id === assocId);
+
+          if (freshPastor) {
+            setLoggedPastor(freshPastor);
+            setSelectedPastor(freshPastor);
+          }
+          if (freshAssoc) {
+            setCurrentAssociation(freshAssoc);
+          }
+
+          if (freshPastor && freshAssoc) {
+            persistUserSession(freshPastor, freshAssoc);
+          }
+        }
       } catch (err) {
-        console.warn('Using offline data fallback:', err);
+        console.warn('Using offline data fallback during session sync:', err);
       }
     }
-    loadData();
+
+    restoreSessionAndLoadData();
   }, []);
 
   // Filter pastors strictly for the active association: "One pastor belongs to one association"
@@ -213,7 +317,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     (e) => e.associationId === currentAssociation.id || e.scope === 'public'
   );
 
-  const [loggedPastor, setLoggedPastor] = useState<Pastor | null>(null);
+  // Filter prayers strictly for this association + global requests
+  const activePrayers = prayers.filter(
+    (p) => !p.associationId || p.associationId === currentAssociation.id || p.isGlobal
+  );
+
+  // Filter donations strictly for this association
+  const activeDonations = donations.filter(
+    (d) => !d.associationId || d.associationId === currentAssociation.id
+  );
+
+  // Load association-scoped data (events, prayers, donations) whenever currentAssociation changes
+  useEffect(() => {
+    if (!currentAssociation.id) return;
+    async function loadAssocData() {
+      try {
+        const [assocEvents, assocPrayers, assocDonations] = await Promise.all([
+          FirestoreService.getEventsForAssociation(currentAssociation.id),
+          FirestoreService.getPrayers(currentAssociation.id),
+          FirestoreService.getDonationsForAssociation(currentAssociation.id),
+        ]);
+        if (assocEvents && assocEvents.length > 0) {
+          setAllEvents((prev) => {
+            const others = prev.filter((e) => e.associationId !== currentAssociation.id);
+            return [...assocEvents, ...others];
+          });
+        }
+        if (assocPrayers && assocPrayers.length > 0) {
+          setPrayers(assocPrayers);
+        }
+        if (assocDonations && assocDonations.length > 0) {
+          setDonations((prev) => {
+            const others = prev.filter((d) => d.associationId !== currentAssociation.id);
+            return [...assocDonations, ...others];
+          });
+        }
+      } catch (err) {
+        console.warn('Could not load association scoped data:', err);
+      }
+    }
+    loadAssocData();
+  }, [currentAssociation.id]);
+
 
   const currentUserRole: PastorRole = loggedPastor?.role || 'MEMBER';
   const currentUserIsAdmin: boolean = loggedPastor?.isAdmin ?? (loggedPastor ? isPastorAdmin(currentUserRole) : false);
@@ -256,11 +401,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setShowPrototypePicker((prev) => !prev);
   };
 
-  const loginWithPhone = (phoneNumber: string, targetAssociationId?: string): boolean => {
+  const loginWithPhone = (
+    phoneNumber: string,
+    targetAssociationId?: string,
+    autoNavigate: boolean = true
+  ): boolean => {
     const cleanInput = phoneNumber.replace(/\D/g, '').slice(-10);
 
     // Look for registered pastor in the dataset
-    const matchedPastor = allPastors.find((p) => {
+    let matchedPastor = allPastors.find((p) => {
       const cleanPastorPhone = p.phone.replace(/\D/g, '').slice(-10);
       const matchesPhone = cleanPastorPhone === cleanInput;
       if (targetAssociationId) {
@@ -269,15 +418,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return matchesPhone;
     });
 
+    // If not in allPastors yet, check if matching association leader
+    if (!matchedPastor && targetAssociationId) {
+      const targetAssoc = associations.find((a) => a.id === targetAssociationId);
+      if (targetAssoc) {
+        const leaderClean = (targetAssoc.leaderPhone || '').replace(/\D/g, '').slice(-10);
+        if (leaderClean === cleanInput) {
+          const leaderFormattedName =
+            targetAssoc.leaderName?.startsWith('Pastor ') || targetAssoc.leaderName?.startsWith('Rev. ')
+              ? targetAssoc.leaderName
+              : `Pastor ${targetAssoc.leaderName || 'Leader'}`;
+          matchedPastor = {
+            id: `p-lead-${targetAssoc.id}`,
+            name: leaderFormattedName,
+            associationId: targetAssoc.id,
+            associationName: targetAssoc.name,
+            associationCode: targetAssoc.code,
+            isVerified: true,
+            isAdmin: true,
+            permissions: getDefaultPermissionsForRole('PRESIDENT'),
+            churchName: `${targetAssoc.name} Central Fellowship`,
+            village: targetAssoc.village || targetAssoc.mandal,
+            mandal: targetAssoc.mandal,
+            district: targetAssoc.district,
+            state: targetAssoc.state,
+            houseNumber: targetAssoc.houseNumber || '',
+            role: 'PRESIDENT',
+            phone: `+91 ${cleanInput}`,
+            churchAddress: `${targetAssoc.village || targetAssoc.mandal}, ${targetAssoc.district}`,
+            denomination: 'Independent',
+            ordainedYear: targetAssoc.establishedYear || '2020',
+            ministry: 'Pastoral & Association Leadership',
+            languages: ['Telugu', 'English'],
+          };
+          setAllPastors((prev) => [matchedPastor!, ...prev]);
+        }
+      }
+    }
+
     if (matchedPastor) {
       setLoggedPastor(matchedPastor);
-      const assoc = associations.find((a) => a.id === matchedPastor.associationId);
+      const assoc =
+        associations.find((a) => a.id === matchedPastor!.associationId) ||
+        (targetAssociationId ? associations.find((a) => a.id === targetAssociationId) : null) ||
+        currentAssociation;
       if (assoc) {
         setCurrentAssociation(assoc);
       }
       setSelectedPastor(matchedPastor);
       setIsLoggedIn(true);
-      setCurrentScreen('home');
+      if (autoNavigate) {
+        setCurrentScreen('home');
+      }
+      if (assoc && assoc.id) {
+        persistUserSession(matchedPastor, assoc);
+      }
       return true;
     }
 
@@ -286,12 +481,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const checkMemberExists = (phoneNumber: string, associationId: string): Pastor | null => {
     const cleanInput = phoneNumber.replace(/\D/g, '').slice(-10);
-    return (
-      allPastors.find((p) => {
-        const cleanPastorPhone = p.phone.replace(/\D/g, '').slice(-10);
-        return cleanPastorPhone === cleanInput && p.associationId === associationId;
-      }) || null
-    );
+    const existing = allPastors.find((p) => {
+      const cleanPastorPhone = p.phone.replace(/\D/g, '').slice(-10);
+      return cleanPastorPhone === cleanInput && p.associationId === associationId;
+    });
+    if (existing) return existing;
+
+    const targetAssoc = associations.find((a) => a.id === associationId);
+    if (targetAssoc) {
+      const leaderClean = (targetAssoc.leaderPhone || '').replace(/\D/g, '').slice(-10);
+      if (leaderClean === cleanInput) {
+        const leaderFormattedName =
+          targetAssoc.leaderName?.startsWith('Pastor ') || targetAssoc.leaderName?.startsWith('Rev. ')
+            ? targetAssoc.leaderName
+            : `Pastor ${targetAssoc.leaderName || 'Leader'}`;
+        return {
+          id: `p-lead-${targetAssoc.id}`,
+          name: leaderFormattedName,
+          associationId: targetAssoc.id,
+          associationName: targetAssoc.name,
+          associationCode: targetAssoc.code,
+          isVerified: true,
+          isAdmin: true,
+          permissions: getDefaultPermissionsForRole('PRESIDENT'),
+          churchName: `${targetAssoc.name} Central Fellowship`,
+          village: targetAssoc.village || targetAssoc.mandal,
+          mandal: targetAssoc.mandal,
+          district: targetAssoc.district,
+          state: targetAssoc.state,
+          houseNumber: targetAssoc.houseNumber || '',
+          role: 'PRESIDENT',
+          phone: `+91 ${cleanInput}`,
+          churchAddress: `${targetAssoc.village || targetAssoc.mandal}, ${targetAssoc.district}`,
+          denomination: 'Independent',
+          ordainedYear: targetAssoc.establishedYear || '2020',
+          ministry: 'Pastoral & Association Leadership',
+          languages: ['Telugu', 'English'],
+        };
+      }
+    }
+    return null;
   };
 
   const findAssociationByCode = (code: string): Association | null => {
@@ -300,22 +529,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return associations.find((a) => a.code.toUpperCase() === clean) || null;
   };
 
-  const registerAssociation = async (data: {
-    name: string;
-    code?: string;
-    country?: string;
-    state: string;
-    district: string;
-    mandal: string;
-    village?: string;
-    leaderName: string;
-    leaderPhone: string;
-    establishedYear?: string;
-  }): Promise<Association> => {
-    // Generate clean uppercase code (e.g. UKUPS or prefix of name)
-    let finalCode = (data.code || data.name.replace(/[^A-Za-z]/g, '').slice(0, 6)).toUpperCase();
-    if (!finalCode || finalCode.length < 3) {
+  const registerAssociation = async (
+    data: {
+      name: string;
+      code?: string;
+      country?: string;
+      state: string;
+      district: string;
+      mandal: string;
+      village?: string;
+      houseNumber?: string;
+      logoUrl?: string;
+      leaderName: string;
+      leaderPhone: string;
+      establishedYear?: string;
+    },
+    autoNavigateToHome: boolean = false
+  ): Promise<Association> => {
+    // 1. Generate meaningful uppercase code based on association name (e.g. "UKUPS Pastors Association" -> "UKUPS")
+    let finalCode = (data.code || generateMeaningfulCode(data.name) || 'ASSOC').toUpperCase();
+    if (!finalCode || finalCode.length < 2) {
       finalCode = `ASSOC${Math.floor(100 + Math.random() * 900)}`;
+    }
+
+    // 2. Ensure uniqueness: check if code already exists in local or remote database
+    const localMatch = associations.find((a) => a.code.toUpperCase() === finalCode);
+    let remoteMatch: Association | null = null;
+    if (!localMatch) {
+      try {
+        remoteMatch = await FirestoreService.getAssociationByCode(finalCode);
+      } catch {
+        // Safe fallback
+      }
+    }
+
+    if (localMatch || remoteMatch) {
+      // If code already taken, append a 2-digit number suffix to make it unique while preserving meaning
+      finalCode = `${finalCode}${Math.floor(10 + Math.random() * 90)}`;
     }
 
     const cleanLeaderPhone = data.leaderPhone.replace(/\D/g, '').slice(-10);
@@ -329,6 +579,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       district: data.district.trim(),
       mandal: data.mandal.trim(),
       village: data.village?.trim() || '',
+      houseNumber: data.houseNumber?.trim() || '',
+      logoUrl: data.logoUrl?.trim() || '',
       memberCount: 1, // Founding leader counts as first member
       establishedYear: data.establishedYear?.trim() || new Date().getFullYear().toString(),
       isVerified: true,
@@ -343,6 +595,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? data.leaderName
         : `Pastor ${data.leaderName}`;
 
+    const formattedAddress = [
+      data.houseNumber?.trim(),
+      newAssoc.village,
+      newAssoc.mandal,
+      newAssoc.district,
+      newAssoc.state,
+    ]
+      .filter(Boolean)
+      .join(', ');
+
     const leaderPastor: Pastor = {
       id: `p-lead-${Date.now()}`,
       name: leaderFormattedName,
@@ -353,47 +615,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isAdmin: true,
       permissions: getDefaultPermissionsForRole('PRESIDENT'),
       churchName: `${data.name} Central Fellowship`,
-      village: newAssoc.mandal,
+      village: newAssoc.village || newAssoc.mandal,
       mandal: newAssoc.mandal,
       district: newAssoc.district,
       state: newAssoc.state,
+      houseNumber: data.houseNumber?.trim() || '',
       role: 'PRESIDENT',
       phone: `+91 ${cleanLeaderPhone}`,
-      churchAddress: `${newAssoc.mandal}, ${newAssoc.district}`,
+      churchAddress: formattedAddress,
       denomination: 'Independent',
       ordainedYear: newAssoc.establishedYear,
       ministry: 'Pastoral & Association Leadership',
       languages: ['Telugu', 'English'],
     };
 
-    // Update state
+    // 3. Persist to Cloud Firestore and verify that save succeeds
+    const assocSaved = await FirestoreService.saveAssociation(newAssoc);
+    const pastorSaved = await FirestoreService.savePastor(leaderPastor);
+
+    if (!assocSaved || !pastorSaved) {
+      throw new Error('Database save failed. Please check network connection.');
+    }
+
+    // 4. Update state only after successful database save
     setAssociations((prev) => [newAssoc, ...prev]);
     setAllPastors((prev) => [leaderPastor, ...prev]);
     setCurrentAssociation(newAssoc);
     setLoggedPastor(leaderPastor);
     setSelectedPastor(leaderPastor);
     setIsLoggedIn(true);
-    setCurrentScreen('home');
+    persistUserSession(leaderPastor, newAssoc);
 
-    // Persist to Cloud Firestore
-    FirestoreService.saveAssociation(newAssoc).catch(console.warn);
-    FirestoreService.savePastor(leaderPastor).catch(console.warn);
+    // Only switch to home screen if explicitly requested; otherwise leave current screen
+    // so caller (LoginScreen) can display the association code confirmation modal!
+    if (autoNavigateToHome) {
+      setCurrentScreen('home');
+    }
 
     return newAssoc;
   };
 
-  const registerPastor = async (data: {
-    name: string;
-    phone: string;
-    churchName: string;
-    associationId?: string;
-    associationCode?: string;
-    village?: string;
-    mandal?: string;
-    district?: string;
-    state?: string;
-    denomination?: string;
-  }): Promise<Pastor> => {
+  const registerPastor = async (
+    data: {
+      name: string;
+      phone: string;
+      churchName: string;
+      associationId?: string;
+      associationCode?: string;
+      village?: string;
+      mandal?: string;
+      district?: string;
+      state?: string;
+      denomination?: string;
+      houseNumber?: string;
+      gender?: 'Male' | 'Female' | 'Other' | 'Others' | string;
+      dateOfBirth?: string;
+    },
+    autoNavigate: boolean = true
+  ): Promise<Pastor> => {
     const cleanPhone = data.phone.replace(/\D/g, '').slice(-10);
 
     // Resolve association by code if provided, or by ID, or fallback to current
@@ -415,9 +694,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? data.name
         : `Pastor ${data.name}`;
 
+    const formattedAddress = [
+      data.houseNumber?.trim(),
+      data.village?.trim() || assoc.village,
+      data.mandal?.trim() || assoc.mandal,
+      data.district?.trim() || assoc.district,
+      data.state?.trim() || assoc.state,
+    ]
+      .filter(Boolean)
+      .join(', ');
+
     const newPastor: Pastor = {
       id: `p-${Date.now()}`,
       name: formattedName,
+      gender: data.gender || 'Male',
+      dateOfBirth: data.dateOfBirth?.trim() || '',
       associationId: assoc.id,
       associationName: assoc.name,
       associationCode: assoc.code,
@@ -425,13 +716,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isAdmin: false,
       permissions: getDefaultPermissionsForRole('MEMBER'),
       churchName: data.churchName || 'Faith Fellowship Church',
-      village: data.village || assoc.mandal,
+      village: data.village || assoc.village || assoc.mandal,
       mandal: data.mandal || assoc.mandal,
       district: data.district || assoc.district,
       state: data.state || assoc.state,
+      houseNumber: data.houseNumber?.trim() || '',
       role: 'MEMBER',
       phone: `+91 ${cleanPhone}`,
-      churchAddress: `${data.churchName}, ${data.mandal || assoc.mandal}`,
+      churchAddress: formattedAddress || `${data.churchName}, ${data.mandal || assoc.mandal}`,
       denomination: data.denomination || 'Independent',
       ordainedYear: new Date().getFullYear().toString(),
       ministry: 'Pastoral & Evangelism',
@@ -443,7 +735,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLoggedPastor(newPastor);
     setSelectedPastor(newPastor);
     setIsLoggedIn(true);
-    setCurrentScreen('home');
+    if (autoNavigate) {
+      setCurrentScreen('home');
+    }
+    persistUserSession(newPastor, assoc);
 
     // Increment member count in association
     setAssociations((prev) =>
@@ -536,6 +831,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     mandal?: string;
     district?: string;
     denomination?: string;
+    gender?: 'Male' | 'Female' | 'Other' | 'Others' | string;
+    dateOfBirth?: string;
     permissions?: Partial<PastorPermissions>;
   }): Promise<Pastor> => {
     const cleanPhone = data.phone.replace(/\D/g, '').slice(-10);
@@ -555,6 +852,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newPastor: Pastor = {
       id: `p-${Date.now()}`,
       name: formattedName,
+      gender: data.gender || 'Male',
+      dateOfBirth: data.dateOfBirth?.trim() || '',
       associationId: currentAssociation.id,
       associationName: currentAssociation.name,
       associationCode: currentAssociation.code,
@@ -591,15 +890,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
+    clearUserSession();
     setLoggedPastor(null);
     setSelectedPastor(null);
     setIsLoggedIn(false);
     setCurrentScreen('login');
   };
 
+  const forceLogout = (reason?: string) => {
+    clearUserSession();
+    setLoggedPastor(null);
+    setSelectedPastor(null);
+    setIsLoggedIn(false);
+    setCurrentScreen('login');
+    if (reason) {
+      Alert.alert('Session Terminated', reason);
+    }
+  };
+
   const selectPastor = (pastor: Pastor) => {
     setSelectedPastor(pastor);
-    setCurrentScreen('profile');
+    setCurrentScreen('pastor-detail');
   };
 
   const selectEventForAttendance = (event: AssociationEvent) => {
@@ -627,6 +938,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       rsvp: 'going',
     };
     setAllEvents((prev) => [newEvent, ...prev]);
+    FirestoreService.saveEvent(newEvent).catch(console.warn);
     setCurrentScreen('events');
   };
 
@@ -665,6 +977,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prayedCount: 1,
     };
     setPrayers((prev) => [newPrayer, ...prev]);
+    FirestoreService.savePrayer(newPrayer).catch(console.warn);
   };
 
   const toggleAttendance = (pastorId: string) => {
@@ -693,6 +1006,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       referenceId: `UPI-${Math.floor(10000000 + Math.random() * 90000000)}`,
     };
     setDonations((prev) => [newDonation, ...prev]);
+    FirestoreService.saveDonation(newDonation).catch(console.warn);
   };
 
   return (
@@ -718,6 +1032,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         registerPastor,
         submitJoinRequest,
         logout,
+        forceLogout,
         updatePastorRoleAndPermissions,
         addMemberByAdmin,
         language,
@@ -730,13 +1045,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectEventForAttendance,
         toggleRSVP,
         addEvent,
-        prayers,
+        prayers: activePrayers,
         togglePrayer,
         addPrayer,
         attendanceMap,
         toggleAttendance,
         markAllAttendance,
-        donations,
+        donations: activeDonations,
         addDonation,
         notices,
       }}

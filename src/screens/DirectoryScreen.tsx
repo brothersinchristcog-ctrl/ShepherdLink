@@ -10,11 +10,10 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
-import { InfoBox } from '../components/InfoBox';
-import { Chip } from '../components/Chip';
 import { COLORS } from '../constants/theme';
 import {
   Pastor,
@@ -33,6 +32,26 @@ const DENOMINATIONS = [
   'Lutheran (AELC)',
 ];
 
+const AVATAR_COLORS = [
+  '#0D9488', // Emerald Teal
+  '#2563EB', // Royal Blue
+  '#7C3AED', // Purple
+  '#EA580C', // Amber Coral
+  '#059669', // Mint Green
+  '#4F46E5', // Indigo
+  '#D97706', // Warm Gold
+  '#E11D48', // Vibrant Rose
+];
+
+const getAvatarColor = (name: string): string => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[index];
+};
+
 export const DirectoryScreen: React.FC = () => {
   const {
     pastors,
@@ -42,6 +61,8 @@ export const DirectoryScreen: React.FC = () => {
     addMemberByAdmin,
     updatePastorRoleAndPermissions,
   } = useApp();
+
+  const officersCount = pastors.filter((p) => isPastorAdmin(p.role)).length;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState<'all' | 'officers' | 'ministry'>('all');
@@ -183,142 +204,182 @@ export const DirectoryScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header Row with Title and Add Button */}
+        {/* Header Row: Title and Add Pastor Button */}
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.title}>Directory</Text>
-            <Text style={styles.subtitle}>{currentAssociation.name}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Pastors Directory</Text>
+            <Text style={styles.subtitle}>
+              Certified members & fellowship leaders
+            </Text>
           </View>
 
           {currentUser.isAdmin && (
             <TouchableOpacity
               style={styles.addPastorBtn}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               onPress={handleOpenAddModal}
             >
-              <Feather name="user-plus" size={15} color="#FFFFFF" />
+              <Ionicons name="person-add" size={15} color="#FFFFFF" />
               <Text style={styles.addPastorBtnText}>Add Pastor</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Admin Notice Banner */}
-        {currentUser.isAdmin && (
-          <View style={styles.adminBanner}>
-            <Ionicons name="shield-checkmark" size={18} color={COLORS.brandNavy} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.adminBannerTitle}>
-                Association Admin Access ({currentUser.role})
-              </Text>
-              <Text style={styles.adminBannerSubtitle}>
-                Administrative rights are restricted strictly to President, Secretary, and Treasurer.
-              </Text>
-            </View>
-          </View>
-        )}
-
         {/* Search Bar */}
         <View style={styles.searchBar}>
-          <Feather name="search" size={18} color={COLORS.muted} />
+          <Ionicons name="search" size={18} color={COLORS.brandTeal} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search name, church, village"
-            placeholderTextColor={COLORS.muted}
+            placeholder="Search by pastor name, church, village..."
+            placeholderTextColor="#94A3B8"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Feather name="x" size={16} color={COLORS.muted} />
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color="#94A3B8" />
             </TouchableOpacity>
           )}
         </View>
 
         {/* Filter Chips */}
         <View style={styles.chipsRow}>
-          <Chip
-            label="All members"
-            isActive={filterTab === 'all'}
+          <TouchableOpacity
+            style={[styles.chipBtn, filterTab === 'all' && styles.chipBtnActive]}
             onPress={() => setFilterTab('all')}
-          />
-          <Chip
-            label="Office bearers"
-            isActive={filterTab === 'officers'}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.chipBtnText, filterTab === 'all' && styles.chipBtnTextActive]}>
+              All Pastors ({pastors.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.chipBtn, filterTab === 'officers' && styles.chipBtnActive]}
             onPress={() => setFilterTab('officers')}
-          />
-          <Chip
-            label="Ministry ▾"
-            isActive={filterTab === 'ministry'}
-            onPress={() => setFilterTab(filterTab === 'ministry' ? 'all' : 'ministry')}
-          />
+            activeOpacity={0.75}
+          >
+            <Ionicons
+              name="shield"
+              size={12}
+              color={filterTab === 'officers' ? '#FFFFFF' : '#D97706'}
+            />
+            <Text style={[styles.chipBtnText, filterTab === 'officers' && styles.chipBtnTextActive]}>
+              Office Bearers ({officersCount})
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Association Info Callout */}
-        <InfoBox
-          type="blue"
-          icon="shield"
-          boldPrefix={`${currentUser.association} · ${pastors.length} members.`}
-          text="You can see pastors of your own association only."
-        />
-
-        {/* Member List */}
-        <View style={styles.list}>
-          {filteredPastors.map((pastor, index) => {
-            const isLast = index === filteredPastors.length - 1;
+        {/* Individual Pastor Cards */}
+        <View style={styles.cardsContainer}>
+          {filteredPastors.map((pastor) => {
             const pastorIsAdmin = isPastorAdmin(pastor.role);
+            const avatarBg = getAvatarColor(pastor.name);
 
             return (
               <TouchableOpacity
                 key={pastor.id}
-                style={[styles.memberRow, isLast && styles.memberRowLast]}
-                activeOpacity={0.7}
+                style={styles.pastorCard}
+                activeOpacity={0.75}
                 onPress={() => selectPastor(pastor)}
               >
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {pastor.name.replace('Pastor ', '').replace('Rev. ', '').charAt(0)}
-                  </Text>
-                </View>
-
-                <View style={styles.memberInfo}>
-                  <View style={styles.nameRow}>
-                    <Text style={styles.memberName}>{pastor.name}</Text>
-                    {pastor.isVerified && (
-                      <Ionicons name="checkmark-circle" size={15} color={COLORS.brandTeal} />
-                    )}
+                {/* Card Top Row: Avatar & Details */}
+                <View style={styles.cardTopRow}>
+                  {/* Rich Colorful Avatar */}
+                  <View style={[styles.avatarBox, { backgroundColor: avatarBg }]}>
+                    <Text style={styles.avatarLetter}>
+                      {pastor.name.replace('Pastor ', '').replace('Rev. ', '').trim().charAt(0).toUpperCase()}
+                    </Text>
                   </View>
-                  <Text style={styles.churchSub} numberOfLines={1}>
-                    {pastor.churchName} · {pastor.village}
-                  </Text>
+
+                  {/* Pastor Details */}
+                  <View style={styles.pastorDetailsCol}>
+                    <View style={styles.pastorTitleRow}>
+                      <Text style={styles.pastorFullName} numberOfLines={1}>
+                        {pastor.name}
+                      </Text>
+                      {pastor.isVerified && (
+                        <Ionicons name="checkmark-circle" size={16} color="#0D9488" />
+                      )}
+                    </View>
+
+                    {/* Church */}
+                    <View style={styles.metaRow}>
+                      <Ionicons name="business-outline" size={13} color="#64748B" />
+                      <Text style={styles.metaChurchText} numberOfLines={1}>
+                        {pastor.churchName}
+                      </Text>
+                    </View>
+
+                    {/* Location */}
+                    <View style={styles.metaRow}>
+                      <Ionicons name="location-outline" size={13} color="#94A3B8" />
+                      <Text style={styles.metaLocationText} numberOfLines={1}>
+                        {[pastor.village, pastor.mandal, pastor.district].filter(Boolean).join(', ')}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
 
-                {/* Role Badge */}
-                <View style={styles.roleContainer}>
+                {/* Card Divider */}
+                <View style={styles.cardDivider} />
+
+                {/* Card Footer: Role, Denomination & Actions */}
+                <View style={styles.cardFooterRow}>
                   {pastorIsAdmin ? (
-                    <View style={styles.adminBadge}>
-                      <Ionicons name="shield" size={10} color="#92400E" />
-                      <Text style={styles.adminBadgeText}>{pastor.role}</Text>
+                    <View style={styles.adminRoleBadge}>
+                      <Ionicons name="shield" size={11} color="#B45309" />
+                      <Text style={styles.adminRoleBadgeText}>{pastor.role}</Text>
                     </View>
                   ) : (
-                    <View style={styles.memberBadge}>
-                      <Text style={styles.memberBadgeText}>{pastor.role}</Text>
+                    <View style={styles.memberRoleBadge}>
+                      <Ionicons name="person" size={11} color="#0D9488" />
+                      <Text style={styles.memberRoleBadgeText}>{pastor.role}</Text>
                     </View>
                   )}
 
-                  {/* Admin Manage Role Button */}
+                  {pastor.denomination ? (
+                    <View style={styles.denomTag}>
+                      <Text style={styles.denomTagText}>{pastor.denomination}</Text>
+                    </View>
+                  ) : null}
+
+                  <View style={{ flex: 1 }} />
+
+                  {/* Quick Phone Call Button */}
+                  {pastor.phone ? (
+                    <TouchableOpacity
+                      style={styles.cardCallBtn}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        Linking.openURL(`tel:${pastor.phone}`).catch(() => {});
+                      }}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="call" size={13} color="#0D9488" />
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {/* Admin Manage Button */}
                   {currentUser.isAdmin && (
                     <TouchableOpacity
-                      style={styles.manageRoleBtn}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      style={styles.cardManageBtn}
                       onPress={(e) => {
                         e.stopPropagation();
                         handleOpenEditModal(pastor);
                       }}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Feather name="sliders" size={14} color={COLORS.brandNavy} />
+                      <Ionicons name="options" size={14} color={COLORS.brandNavy} />
                     </TouchableOpacity>
                   )}
+
+                  <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
                 </View>
               </TouchableOpacity>
             );
@@ -326,7 +387,13 @@ export const DirectoryScreen: React.FC = () => {
 
           {filteredPastors.length === 0 && (
             <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>No pastors found matching your query.</Text>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="search" size={28} color="#94A3B8" />
+              </View>
+              <Text style={styles.emptyTitle}>No pastors found</Text>
+              <Text style={styles.emptySubtitle}>
+                Try searching with a different name, church, or village
+              </Text>
             </View>
           )}
         </View>
@@ -687,8 +754,8 @@ export const DirectoryScreen: React.FC = () => {
                   <Text style={styles.briefChurch}>{editingPastor?.churchName}</Text>
                   <Text style={styles.briefPhone}>{editingPastor?.phone}</Text>
                 </View>
-                <View style={isPastorAdmin(editingPastor?.role || 'MEMBER') ? styles.adminBadge : styles.memberBadge}>
-                  <Text style={isPastorAdmin(editingPastor?.role || 'MEMBER') ? styles.adminBadgeText : styles.memberBadgeText}>
+                <View style={isPastorAdmin(editingPastor?.role || 'MEMBER') ? styles.adminRoleBadge : styles.memberRoleBadge}>
+                  <Text style={isPastorAdmin(editingPastor?.role || 'MEMBER') ? styles.adminRoleBadgeText : styles.memberRoleBadgeText}>
                     {editingPastor?.role}
                   </Text>
                 </View>
@@ -911,24 +978,67 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.ground,
   },
   container: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 24,
     gap: 12,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+  },
+  topAssocBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  assocPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  assocPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0D9488',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  memberCountBadge: {
+    backgroundColor: '#EEF2F6',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  memberCountBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 2,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: COLORS.ink,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 13,
-    color: COLORS.muted,
+    fontSize: 12,
+    color: '#64748B',
     fontWeight: '500',
     marginTop: 2,
   },
@@ -936,14 +1046,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: COLORS.brandNavy,
-    paddingVertical: 8,
+    backgroundColor: COLORS.brandTeal,
+    paddingVertical: 9,
     paddingHorizontal: 14,
-    borderRadius: 20,
-    shadowColor: COLORS.brandNavy,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    borderRadius: 12,
+    shadowColor: COLORS.brandTeal,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
     elevation: 3,
   },
   addPastorBtnText: {
@@ -951,104 +1061,157 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  adminBanner: {
+  adminStatusStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FEF3C7',
+    gap: 8,
+    backgroundColor: '#FEF9C3',
     borderWidth: 1,
-    borderColor: '#FDE68A',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderColor: '#FDE047',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
-  adminBannerTitle: {
+  adminStatusStripText: {
     fontSize: 12,
-    fontWeight: '800',
     color: '#92400E',
-  },
-  adminBannerSubtitle: {
-    fontSize: 11,
-    color: '#78350F',
-    marginTop: 1,
+    fontWeight: '500',
   },
   searchBar: {
     height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.field,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     gap: 10,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
+    fontWeight: '500',
     color: COLORS.ink,
   },
   chipsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    gap: 8,
   },
-  list: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: COLORS.soft,
-  },
-  memberRow: {
-    minHeight: 74,
+  chipBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingVertical: 7,
     paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  chipBtnActive: {
+    backgroundColor: COLORS.brandTeal,
+    borderColor: COLORS.brandTeal,
+    shadowColor: COLORS.brandTeal,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  chipBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  chipBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  cardsContainer: {
+    gap: 10,
+  },
+  pastorCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.soft,
   },
-  memberRowLast: {
-    borderBottomWidth: 0,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.avatar,
+  avatarBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.ink,
+  avatarLetter: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
-  memberInfo: {
+  pastorDetailsCol: {
     flex: 1,
     gap: 3,
   },
-  nameRow: {
+  pastorTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  memberName: {
+  pastorFullName: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.ink,
+    color: '#0F172A',
+    flexShrink: 1,
   },
-  churchSub: {
-    fontSize: 13,
-    color: COLORS.muted,
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
-  roleContainer: {
+  metaChurchText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    flexShrink: 1,
+  },
+  metaLocationText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#94A3B8',
+    flexShrink: 1,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 10,
+  },
+  cardFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  adminBadge: {
+  adminRoleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -1059,39 +1222,89 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 8,
   },
-  adminBadgeText: {
+  adminRoleBadgeText: {
     fontSize: 10,
     fontWeight: '800',
     color: '#92400E',
     letterSpacing: 0.3,
   },
-  memberBadge: {
-    backgroundColor: '#F3F4F6',
+  memberRoleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
   },
-  memberBadgeText: {
+  memberRoleBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#6B7280',
+    color: '#0D9488',
     letterSpacing: 0.3,
   },
-  manageRoleBtn: {
+  denomTag: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  denomTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  cardCallBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: COLORS.brandNavySoft,
+    backgroundColor: '#CCFBF1',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyWrap: {
-    padding: 24,
+  cardManageBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  emptyText: {
-    fontSize: 14,
-    color: COLORS.muted,
+  emptyWrap: {
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  emptyIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 16,
   },
 
   /* Modal Styles */

@@ -17,58 +17,126 @@ import { InfoBox } from '../components/InfoBox';
 import { Tag } from '../components/Tag';
 import { COLORS } from '../constants/theme';
 import {
+  Pastor,
   PastorRole,
   PastorPermissions,
   isPastorAdmin,
   getDefaultPermissionsForRole,
 } from '../types';
 
+const AVATAR_COLORS = [
+  '#0D9488', // Emerald Teal
+  '#2563EB', // Royal Blue
+  '#7C3AED', // Purple
+  '#EA580C', // Amber Coral
+  '#059669', // Mint Green
+  '#4F46E5', // Indigo
+  '#D97706', // Warm Gold
+  '#E11D48', // Vibrant Rose
+];
+
+const getAvatarColor = (name: string): string => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[index];
+};
+
 export const ProfileScreen: React.FC = () => {
   const {
+    currentScreen,
     selectedPastor,
     navigateTo,
     logout,
     currentUser,
+    loggedPastor,
     updatePastorRoleAndPermissions,
   } = useApp();
 
-  const pastor = selectedPastor;
+  // If on 'profile' screen, viewing logged-in user's profile.
+  // If on 'pastor-detail', viewing selected pastor from directory.
+  const isMyProfile = currentScreen === 'profile';
+
+  const displayPastor: Pastor = isMyProfile
+    ? (loggedPastor || ({
+        id: 'me',
+        name: currentUser.name || 'Pastor',
+        role: currentUser.role,
+        isAdmin: currentUser.isAdmin,
+        permissions: currentUser.permissions,
+        associationId: currentUser.associationId,
+        associationName: currentUser.association,
+        associationCode: '',
+        isVerified: true,
+        churchName: `${currentUser.association} Fellowship`,
+        village: currentUser.district || '',
+        mandal: currentUser.district || '',
+        district: currentUser.district || '',
+        state: currentUser.state || '',
+        phone: currentUser.phone || '',
+        churchAddress: `${currentUser.district}, ${currentUser.state}`,
+        denomination: 'Independent',
+        ordainedYear: '2020',
+        ministry: 'Pastoral & Ministry Leadership',
+        languages: ['Telugu', 'English'],
+      } as Pastor))
+    : (selectedPastor || loggedPastor || ({
+        id: 'unknown',
+        name: 'Pastor',
+        role: 'MEMBER',
+        isAdmin: false,
+        permissions: getDefaultPermissionsForRole('MEMBER'),
+        associationId: currentUser.associationId,
+        associationName: currentUser.association,
+        associationCode: '',
+        isVerified: false,
+        churchName: 'Church',
+        village: '',
+        mandal: '',
+        district: '',
+        state: '',
+        phone: '',
+        churchAddress: '',
+        denomination: 'Independent',
+        ordainedYear: '2020',
+        ministry: 'Pastoral Ministry',
+        languages: ['Telugu', 'English'],
+      } as Pastor));
 
   const [showManageModal, setShowManageModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [targetRole, setTargetRole] = useState<PastorRole>(pastor?.role || 'MEMBER');
+  const [targetRole, setTargetRole] = useState<PastorRole>(displayPastor?.role || 'MEMBER');
   const [targetPermissions, setTargetPermissions] = useState<PastorPermissions>(
-    pastor?.permissions || getDefaultPermissionsForRole(pastor?.role || 'MEMBER')
+    displayPastor?.permissions || getDefaultPermissionsForRole(displayPastor?.role || 'MEMBER')
   );
 
-  const isMyProfile =
-    (pastor?.phone?.replace(/\D/g, '').slice(-10) ===
-      currentUser.phone.replace(/\D/g, '').slice(-10) ||
-      pastor?.name === currentUser.name);
-
-  const pastorIsAdmin = isPastorAdmin(pastor?.role || 'MEMBER');
+  const pastorIsAdmin = isPastorAdmin(displayPastor?.role || 'MEMBER');
   const effectivePermissions =
-    pastor?.permissions || getDefaultPermissionsForRole(pastor?.role || 'MEMBER');
+    displayPastor?.permissions || getDefaultPermissionsForRole(displayPastor?.role || 'MEMBER');
 
   const handleCall = () => {
-    Linking.openURL(`tel:${selectedPastor.phone}`).catch(() => {
-      Alert.alert('Calling', `Dialing ${selectedPastor.phone}`);
+    if (!displayPastor.phone) return;
+    Linking.openURL(`tel:${displayPastor.phone}`).catch(() => {
+      Alert.alert('Calling', `Dialing ${displayPastor.phone}`);
     });
   };
 
   const handleMessage = () => {
-    Linking.openURL(`sms:${selectedPastor.phone}`).catch(() => {
-      Alert.alert('Messaging', `Opening SMS to ${selectedPastor.phone}`);
+    if (!displayPastor.phone) return;
+    Linking.openURL(`sms:${displayPastor.phone}`).catch(() => {
+      Alert.alert('Messaging', `Opening SMS to ${displayPastor.phone}`);
     });
   };
 
   const handleDirections = () => {
     const query = encodeURIComponent(
-      `${selectedPastor.churchName}, ${selectedPastor.village}, ${selectedPastor.mandal}`
+      `${displayPastor.churchName}, ${displayPastor.village}, ${displayPastor.mandal}`
     );
     Linking.openURL(`https://maps.google.com/?q=${query}`).catch(() => {
-      Alert.alert('Maps', `Navigating to ${selectedPastor.churchAddress}`);
+      Alert.alert('Maps', `Navigating to ${displayPastor.churchAddress}`);
     });
   };
 
@@ -88,9 +156,9 @@ export const ProfileScreen: React.FC = () => {
   };
 
   const openManageModal = () => {
-    setTargetRole(selectedPastor.role);
+    setTargetRole(displayPastor.role);
     setTargetPermissions(
-      selectedPastor.permissions || getDefaultPermissionsForRole(selectedPastor.role)
+      displayPastor.permissions || getDefaultPermissionsForRole(displayPastor.role)
     );
     setShowManageModal(true);
   };
@@ -104,14 +172,14 @@ export const ProfileScreen: React.FC = () => {
     setIsSubmitting(true);
     try {
       await updatePastorRoleAndPermissions(
-        selectedPastor.id,
+        displayPastor.id,
         targetRole,
         targetPermissions
       );
       setShowManageModal(false);
       Alert.alert(
         'Permissions Updated',
-        `Updated role & access permissions for ${selectedPastor.name}.`
+        `Updated role & access permissions for ${displayPastor.name}.`
       );
     } catch {
       Alert.alert('Error', 'Failed to update permissions. Please try again.');
@@ -126,7 +194,7 @@ export const ProfileScreen: React.FC = () => {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Header Row with Back and Logout */}
+        {/* Top Header Row with Back and Screen Title */}
         <View style={styles.topNavRow}>
           <TouchableOpacity
             style={styles.backBtn}
@@ -136,40 +204,58 @@ export const ProfileScreen: React.FC = () => {
             <Feather name="chevron-left" size={24} color={COLORS.ink} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.logoutHeaderBtn}
-            activeOpacity={0.7}
-            onPress={handleLogout}
-          >
-            <Feather name="log-out" size={16} color={COLORS.danger} />
-            <Text style={styles.logoutHeaderText}>Log Out</Text>
-          </TouchableOpacity>
+          <Text style={styles.topNavTitle}>
+            {isMyProfile ? 'My Profile' : 'Pastor Profile'}
+          </Text>
+
+          {isMyProfile ? (
+            <TouchableOpacity
+              style={styles.logoutHeaderBtn}
+              activeOpacity={0.7}
+              onPress={handleLogout}
+            >
+              <Feather name="log-out" size={16} color={COLORS.danger} />
+              <Text style={styles.logoutHeaderText}>Log Out</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 44 }} />
+          )}
         </View>
 
         {/* Header Profile Info */}
         <View style={styles.profileHeader}>
-          <View style={styles.largeAvatar}>
+          <View
+            style={[
+              styles.largeAvatar,
+              { backgroundColor: getAvatarColor(displayPastor.name || 'Pastor') },
+            ]}
+          >
             <Text style={styles.avatarLabel}>
-              {selectedPastor.name
+              {(displayPastor.name || 'P')
                 .replace('Pastor ', '')
                 .replace('Rev. Dr. ', '')
-                .charAt(0)}
+                .replace('Rev. ', '')
+                .trim()
+                .charAt(0)
+                .toUpperCase() || 'P'}
             </Text>
           </View>
 
           <View style={styles.nameRow}>
-            <Text style={styles.name}>{selectedPastor.name}</Text>
-            {selectedPastor.isVerified && (
+            <Text style={styles.name}>{displayPastor.name}</Text>
+            {displayPastor.isVerified && (
               <Ionicons name="checkmark-circle" size={22} color={COLORS.brandTeal} />
             )}
           </View>
 
           <Text style={styles.churchSub}>
-            {selectedPastor.churchName}, {selectedPastor.village}
+            {[displayPastor.churchName, displayPastor.village, displayPastor.district]
+              .filter(Boolean)
+              .join(', ')}
           </Text>
 
           <Tag
-            label={`${selectedPastor.role} · ${selectedPastor.mandal.toUpperCase()} ASSOCIATION`}
+            label={`${displayPastor.role} · ${(displayPastor.mandal || displayPastor.district || 'ASSOCIATION').toUpperCase()}`}
             type="mine"
             size="md"
           />
@@ -227,11 +313,11 @@ export const ProfileScreen: React.FC = () => {
             {pastorIsAdmin ? (
               <View style={styles.adminBadge}>
                 <Ionicons name="shield" size={11} color="#92400E" />
-                <Text style={styles.adminBadgeText}>{selectedPastor.role}</Text>
+                <Text style={styles.adminBadgeText}>{displayPastor.role}</Text>
               </View>
             ) : (
               <View style={styles.memberBadge}>
-                <Text style={styles.memberBadgeText}>{selectedPastor.role}</Text>
+                <Text style={styles.memberBadgeText}>{displayPastor.role}</Text>
               </View>
             )}
           </View>
@@ -353,40 +439,59 @@ export const ProfileScreen: React.FC = () => {
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Association</Text>
             <Text style={styles.detailValue}>
-              {selectedPastor.associationName ||
-                `${selectedPastor.mandal} Pastors Association`}
+              {displayPastor.associationName ||
+                `${displayPastor.mandal || displayPastor.district || 'Fellowship'} Pastors Association`}
             </Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Mobile Phone</Text>
-            <Text style={styles.detailValue}>{selectedPastor.phone}</Text>
+            <Text style={styles.detailValue}>{displayPastor.phone || 'Not provided'}</Text>
           </View>
+
+          {displayPastor.gender ? (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>Gender</Text>
+              <Text style={styles.detailValue}>{displayPastor.gender}</Text>
+            </View>
+          ) : null}
+
+          {displayPastor.dateOfBirth ? (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailKey}>Date of Birth</Text>
+              <Text style={styles.detailValue}>{displayPastor.dateOfBirth}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Church address</Text>
-            <Text style={styles.detailValue}>{selectedPastor.churchAddress}</Text>
+            <Text style={styles.detailValue}>
+              {displayPastor.churchAddress ||
+                [displayPastor.churchName, displayPastor.village, displayPastor.mandal, displayPastor.district]
+                  .filter(Boolean)
+                  .join(', ')}
+            </Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Denomination</Text>
-            <Text style={styles.detailValue}>{selectedPastor.denomination}</Text>
+            <Text style={styles.detailValue}>{displayPastor.denomination || 'Independent'}</Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Ordained</Text>
-            <Text style={styles.detailValue}>{selectedPastor.ordainedYear}</Text>
+            <Text style={styles.detailValue}>{displayPastor.ordainedYear || '2020'}</Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailKey}>Ministry</Text>
-            <Text style={styles.detailValue}>{selectedPastor.ministry}</Text>
+            <Text style={styles.detailValue}>{displayPastor.ministry || 'Pastoral Ministry'}</Text>
           </View>
 
           <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
             <Text style={styles.detailKey}>Languages</Text>
             <Text style={styles.detailValue}>
-              {selectedPastor.languages.join(', ')}
+              {displayPastor.languages?.join(', ') || 'Telugu, English'}
             </Text>
           </View>
         </View>
@@ -398,15 +503,17 @@ export const ProfileScreen: React.FC = () => {
           text="Phone number and address are visible only to verified members of the same association."
         />
 
-        {/* Full Logout Button at Bottom of Profile */}
-        <TouchableOpacity
-          style={styles.logoutFullBtn}
-          onPress={handleLogout}
-          activeOpacity={0.8}
-        >
-          <Feather name="log-out" size={18} color={COLORS.danger} />
-          <Text style={styles.logoutFullBtnText}>Sign Out of Account</Text>
-        </TouchableOpacity>
+        {/* Full Logout Button at Bottom of Profile (Only for My Profile) */}
+        {isMyProfile && (
+          <TouchableOpacity
+            style={styles.logoutFullBtn}
+            onPress={handleLogout}
+            activeOpacity={0.8}
+          >
+            <Feather name="log-out" size={18} color={COLORS.danger} />
+            <Text style={styles.logoutFullBtnText}>Sign Out of Account</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* MANAGE ROLE & PERMISSIONS MODAL */}
@@ -421,7 +528,7 @@ export const ProfileScreen: React.FC = () => {
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>Manage Role & Permissions</Text>
-                <Text style={styles.modalSubtitle}>{selectedPastor.name}</Text>
+                <Text style={styles.modalSubtitle}>{displayPastor.name}</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setShowManageModal(false)}
@@ -662,15 +769,23 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.ground,
   },
   container: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 36,
     gap: 16,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   topNavRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  topNavTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: COLORS.ink,
   },
   backBtn: {
     width: 44,
@@ -701,19 +816,23 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   largeAvatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: COLORS.brandNavySoft,
+    width: 92,
+    height: 92,
+    borderRadius: 46,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.brandTeal,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   avatarLabel: {
     fontSize: 34,
     fontWeight: '800',
-    color: COLORS.brandNavy,
+    color: '#FFFFFF',
   },
   nameRow: {
     flexDirection: 'row',

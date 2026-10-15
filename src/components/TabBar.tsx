@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { TabName } from '../types';
 import { COLORS } from '../constants/theme';
@@ -8,15 +8,44 @@ import { COLORS } from '../constants/theme';
 interface TabItem {
   id: TabName;
   label: string;
-  icon: keyof typeof Feather.glyphMap;
+  activeIcon: keyof typeof Ionicons.glyphMap;
+  inactiveIcon: keyof typeof Ionicons.glyphMap;
 }
 
+const ACTIVE_COLOR = COLORS.brandTeal; // Unified brand teal (#009B9E)
+const INACTIVE_COLOR = '#64748B'; // Sleek slate grey
+
 const TABS: TabItem[] = [
-  { id: 'home', label: 'Home', icon: 'home' },
-  { id: 'directory', label: 'Directory', icon: 'users' },
-  { id: 'events', label: 'Events', icon: 'calendar' },
-  { id: 'prayer', label: 'Prayer', icon: 'heart' },
-  { id: 'profile', label: 'Profile', icon: 'user' },
+  {
+    id: 'home',
+    label: 'Home',
+    activeIcon: 'home',
+    inactiveIcon: 'home-outline',
+  },
+  {
+    id: 'directory',
+    label: 'Directory',
+    activeIcon: 'people',
+    inactiveIcon: 'people-outline',
+  },
+  {
+    id: 'events',
+    label: 'Events',
+    activeIcon: 'calendar',
+    inactiveIcon: 'calendar-outline',
+  },
+  {
+    id: 'prayer',
+    label: 'Prayer',
+    activeIcon: 'heart',
+    inactiveIcon: 'heart-outline',
+  },
+  {
+    id: 'profile',
+    label: 'Profile',
+    activeIcon: 'person',
+    inactiveIcon: 'person-outline',
+  },
 ];
 
 export const TabBar: React.FC = () => {
@@ -46,11 +75,15 @@ export const TabBar: React.FC = () => {
             onPress={() => handleTabPress(tab.id)}
             activeOpacity={0.7}
           >
-            <Feather
-              name={tab.icon}
-              size={22}
-              color={isActive ? COLORS.accent : COLORS.muted}
-            />
+            <View style={styles.iconWrap}>
+              <Ionicons
+                name={isActive ? tab.activeIcon : tab.inactiveIcon}
+                size={23}
+                color={isActive ? ACTIVE_COLOR : INACTIVE_COLOR}
+              />
+            </View>
+
+            {/* Label */}
             <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
               {tab.label}
             </Text>
@@ -66,30 +99,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     borderTopWidth: 1,
-    borderTopColor: COLORS.line,
+    borderTopColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
     paddingTop: 8,
-    paddingBottom: 20,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
     elevation: 8,
-    shadowColor: '#000000',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 6,
   },
   tabBtn: {
-    minWidth: 60,
-    minHeight: 44,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    paddingVertical: 3,
+    gap: 3,
+  },
+  iconWrap: {
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tabLabel: {
     fontSize: 11,
     fontWeight: '500',
-    color: COLORS.muted,
+    color: INACTIVE_COLOR,
+    letterSpacing: 0.1,
   },
   tabLabelActive: {
-    color: COLORS.accent,
+    color: ACTIVE_COLOR,
     fontWeight: '700',
   },
 });

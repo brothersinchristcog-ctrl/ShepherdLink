@@ -34,6 +34,7 @@ const MainNavigator: React.FC = () => {
         return <HomeScreen />;
       case 'directory':
         return <DirectoryScreen />;
+      case 'pastor-detail':
       case 'profile':
         return <ProfileScreen />;
       case 'events':
