@@ -66,10 +66,10 @@ export const TabBar: React.FC = () => {
     }
   };
 
-  // Clean, standard mobile bottom bar padding without oversized chin
+  // Dedicated clearance ensuring labels never overlap with device gesture bar or navigation buttons
   const bottomPadding = Platform.OS === 'ios'
-    ? (insets.bottom > 0 ? insets.bottom : 16)
-    : (insets.bottom > 0 ? Math.min(insets.bottom, 12) : 8);
+    ? (insets.bottom > 0 ? insets.bottom : 20)
+    : Math.max(insets.bottom, 20);
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>
