@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { TabName } from '../types';
@@ -50,6 +51,7 @@ const TABS: TabItem[] = [
 
 export const TabBar: React.FC = () => {
   const { currentScreen, activeTab, navigateTo } = useApp();
+  const insets = useSafeAreaInsets();
 
   // Hide tabbar on login screen matching the prototype
   if (currentScreen === 'login') {
@@ -64,8 +66,11 @@ export const TabBar: React.FC = () => {
     }
   };
 
+  // Provide extra bottom clearance to push the navigation bar comfortably up
+  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 16) + 10;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: bottomPadding }]}>
       {TABS.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
@@ -101,8 +106,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+    paddingTop: 10,
     elevation: 8,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: -2 },
