@@ -66,8 +66,10 @@ export const TabBar: React.FC = () => {
     }
   };
 
-  // Provide extra bottom clearance to push the navigation bar comfortably up
-  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 16) + 10;
+  // Clean, standard mobile bottom bar padding without oversized chin
+  const bottomPadding = Platform.OS === 'ios'
+    ? (insets.bottom > 0 ? insets.bottom : 16)
+    : (insets.bottom > 0 ? Math.min(insets.bottom, 12) : 8);
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>
@@ -106,7 +108,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
-    paddingTop: 10,
+    paddingTop: 6,
     elevation: 8,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: -2 },
@@ -117,16 +119,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 3,
-    gap: 3,
+    paddingVertical: 2,
+    gap: 2,
   },
   iconWrap: {
-    height: 26,
+    height: 25,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '500',
     color: INACTIVE_COLOR,
     letterSpacing: 0.1,
