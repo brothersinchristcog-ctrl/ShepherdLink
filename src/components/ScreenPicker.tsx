@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
-import { ScreenName } from '../types';
+import { ScreenName, isPastorAdmin } from '../types';
 import { COLORS } from '../constants/theme';
 
 interface ScreenOption {
@@ -31,7 +31,20 @@ export const ScreenPicker: React.FC = () => {
     associations,
     currentAssociation,
     switchAssociation,
+    currentUser,
   } = useApp();
+
+  const isAssociationAdmin = Boolean(
+    currentUser.isAdmin ||
+      currentUser.permissions?.canCreateEvents ||
+      (currentUser.role && isPastorAdmin(currentUser.role))
+  );
+
+  const visibleScreens = SCREENS.filter((s) => {
+    if (s.key === 'create' && !isAssociationAdmin) return false;
+    return true;
+  });
+
 
   return (
     <View style={styles.container}>
@@ -61,7 +74,7 @@ export const ScreenPicker: React.FC = () => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.scrollList}
           >
-            {SCREENS.map((s) => {
+            {visibleScreens.map((s) => {
               const isActive = currentScreen === s.key;
               return (
                 <TouchableOpacity

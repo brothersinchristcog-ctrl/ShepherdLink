@@ -25,6 +25,7 @@ export const AttendanceScreen: React.FC = () => {
   } = useApp();
 
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showScanModal, setShowScanModal] = useState(false);
 
   const totalMembers = pastors.length;
   const presentCount = pastors.filter((p) => attendanceMap[p.id]).length;
@@ -96,15 +97,24 @@ export const AttendanceScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Action Buttons: Show QR, Mark All */}
+      {/* Action Buttons: Show QR, Scan QR, Mark All */}
       <View style={styles.actionsRow}>
         <TouchableOpacity
           style={styles.plainBtn}
           onPress={() => setShowQRModal(true)}
           activeOpacity={0.7}
         >
-          <Feather name="maximize" size={16} color={COLORS.ink} />
-          <Text style={styles.plainBtnText}>Show QR check-in</Text>
+          <Feather name="maximize" size={15} color={COLORS.ink} />
+          <Text style={styles.plainBtnText}>Show QR</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.plainBtn}
+          onPress={() => setShowScanModal(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="qr-code-outline" size={15} color={COLORS.brandTeal} />
+          <Text style={[styles.plainBtnText, { color: COLORS.brandNavy, fontWeight: '700' }]}>Scan QR</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -185,6 +195,52 @@ export const AttendanceScreen: React.FC = () => {
               onPress={() => setShowQRModal(false)}
             >
               <Text style={styles.primaryBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal: QR Scanner for Attendance */}
+      <Modal visible={showScanModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.qrTitle}>Scan Pastor Check-in QR</Text>
+            <Text style={styles.qrSub}>
+              Scan member QR code to mark attendance for {event.title}.
+            </Text>
+
+            <View style={styles.viewfinderFrame}>
+              <View style={[styles.cornerReticle, styles.cornerTL]} />
+              <View style={[styles.cornerReticle, styles.cornerTR]} />
+              <View style={[styles.cornerReticle, styles.cornerBL]} />
+              <View style={[styles.cornerReticle, styles.cornerBR]} />
+              <Ionicons name="qr-code-outline" size={64} color="rgba(255,255,255,0.4)" />
+              <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 8 }}>
+                Align member QR code within frame
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.primaryBtn, { width: '100%', marginTop: 14 }]}
+              onPress={() => {
+                const nextAbsent = pastors.find((p) => !attendanceMap[p.id]);
+                if (nextAbsent) {
+                  toggleAttendance(nextAbsent.id);
+                  Alert.alert('Scanned & Verified!', `Marked ${nextAbsent.name} as PRESENT.`);
+                } else {
+                  Alert.alert('All Checked In', 'All registered pastors are already marked present.');
+                }
+                setShowScanModal(false);
+              }}
+            >
+              <Text style={styles.primaryBtnText}>Scan & Mark Present</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.plainBtn, { width: '100%', marginTop: 8, alignItems: 'center' }]}
+              onPress={() => setShowScanModal(false)}
+            >
+              <Text style={[styles.plainBtnText, { color: COLORS.muted }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -404,4 +460,45 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.ground,
     borderRadius: 16,
   },
+  viewfinderFrame: {
+    width: 200,
+    height: 180,
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginVertical: 6,
+  },
+  cornerReticle: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderColor: COLORS.brandTeal,
+  },
+  cornerTL: {
+    top: 10,
+    left: 10,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+  },
+  cornerTR: {
+    top: 10,
+    right: 10,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+  },
+  cornerBL: {
+    bottom: 10,
+    left: 10,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+  },
+  cornerBR: {
+    bottom: 10,
+    right: 10,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+  },
 });
+

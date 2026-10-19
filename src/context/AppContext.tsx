@@ -138,6 +138,7 @@ interface AppContextType {
   selectEventForAttendance: (event: AssociationEvent) => void;
   toggleRSVP: (eventId: string, rsvpType: 'going' | 'maybe') => void;
   addEvent: (newEvent: Omit<AssociationEvent, 'id' | 'rsvp' | 'associationId'>) => void;
+  deleteEvent: (eventId: string) => void;
 
   // Prayers
   prayers: PrayerRequest[];
@@ -942,6 +943,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentScreen('events');
   };
 
+  const deleteEvent = (eventId: string) => {
+    const target = allEvents.find((e) => e.id === eventId);
+    setAllEvents((prev) => prev.filter((e) => e.id !== eventId));
+    if (selectedEvent?.id === eventId) {
+      setSelectedEvent(null);
+    }
+    if (target) {
+      FirestoreService.deleteEvent(eventId, target.associationId).catch(console.warn);
+    }
+  };
+
   const togglePrayer = (prayerId: string) => {
     setPrayers((prev) =>
       prev.map((p) => {
@@ -1045,6 +1057,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectEventForAttendance,
         toggleRSVP,
         addEvent,
+        deleteEvent,
         prayers: activePrayers,
         togglePrayer,
         addPrayer,

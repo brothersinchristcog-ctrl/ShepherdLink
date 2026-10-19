@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   setDoc,
+  deleteDoc,
   query,
   where,
 } from 'firebase/firestore';
@@ -382,6 +383,25 @@ export const FirestoreService = {
       return true;
     } catch (error) {
       console.error('❌ Failed to save event to Firestore:', error);
+      return false;
+    }
+  },
+
+  /**
+   * Delete an association event from Firestore
+   */
+  async deleteEvent(eventId: string, associationId?: string): Promise<boolean> {
+    if (!db) return true;
+    try {
+      const promises: Promise<void>[] = [];
+      if (associationId) {
+        promises.push(deleteDoc(doc(db, 'associations', associationId, 'events', eventId)));
+      }
+      promises.push(deleteDoc(doc(db, 'events', eventId)));
+      await Promise.all(promises);
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to delete event from Firestore:', error);
       return false;
     }
   },

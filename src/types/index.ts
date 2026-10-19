@@ -134,6 +134,10 @@ export interface AssociationEvent {
   isMyAssociation: boolean;
   trackAttendance: boolean;
   rsvp?: 'going' | 'maybe' | null;
+  startDate?: string;
+  endDate?: string;
+  startTime?: string;
+  endTime?: string;
 }
 
 export interface PrayerRequest {
