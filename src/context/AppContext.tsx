@@ -19,7 +19,7 @@ import {
 } from '../types';
 import { FirestoreService } from '../services/firestoreService';
 import { generateMeaningfulCode } from '../utils/codeGenerator';
-import { INITIAL_PRAYERS } from '../data/mockData';
+import { INITIAL_ASSOCIATIONS, INITIAL_PASTORS, INITIAL_PRAYERS } from '../data/mockData';
 
 interface AppContextType {
   // Navigation & screens
@@ -239,12 +239,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [language, setLanguage] = useState<string>('English');
 
   // Multi-Association State (Clean dynamic data)
-  const [associations, setAssociations] = useState<Association[]>([]);
-  const [currentAssociation, setCurrentAssociation] = useState<Association>(DEFAULT_ASSOCIATION);
+  const [associations, setAssociations] = useState<Association[]>(INITIAL_ASSOCIATIONS);
+  const [currentAssociation, setCurrentAssociation] = useState<Association>(
+    INITIAL_ASSOCIATIONS[0] || DEFAULT_ASSOCIATION
+  );
 
-  const [allPastors, setAllPastors] = useState<Pastor[]>([]);
-  const [loggedPastor, setLoggedPastor] = useState<Pastor | null>(null);
-  const [selectedPastor, setSelectedPastor] = useState<Pastor | null>(null);
+  const [allPastors, setAllPastors] = useState<Pastor[]>(INITIAL_PASTORS);
+  const [loggedPastor, setLoggedPastor] = useState<Pastor | null>(INITIAL_PASTORS[0] || null);
+  const [selectedPastor, setSelectedPastor] = useState<Pastor | null>(INITIAL_PASTORS[0] || null);
 
   const [allEvents, setAllEvents] = useState<AssociationEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<AssociationEvent | null>(null);
