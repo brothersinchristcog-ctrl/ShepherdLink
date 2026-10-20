@@ -295,7 +295,7 @@ export const EventsScreen: React.FC = () => {
                 activeOpacity={0.92}
                 onPress={() => setSelectedEventDetails(item)}
               >
-                {/* Event Thumbnail Banner (if present) */}
+                {/* Event Thumbnail Banner (Full-bleed 16:9, never cut) */}
                 {item.thumbnailUrl && (
                   <View style={styles.cardThumbnailWrapper}>
                     <Image
@@ -306,204 +306,184 @@ export const EventsScreen: React.FC = () => {
                   </View>
                 )}
 
-                {/* Top Badge & Admin Action Row */}
-                <View style={styles.cardHeaderRow}>
-                  <View style={styles.badgesLine}>
-                    <View style={[styles.scopeTag, isPublic ? styles.scopeTagPublic : styles.scopeTagPrivate]}>
-                      <Ionicons
-                        name={isPublic ? 'globe-outline' : 'shield-checkmark-outline'}
-                        size={11}
-                        color={isPublic ? '#92400E' : COLORS.brandNavy}
-                      />
-                      <Text style={[styles.scopeTagText, isPublic ? styles.scopeTagTextPublic : styles.scopeTagTextPrivate]}>
-                        {isPublic ? 'Public Event' : 'Association Only'}
-                      </Text>
-                    </View>
-
-                    {/* Today / Tomorrow Light Text Badge */}
-                    {relativeDate && (
-                      <View
-                        style={[
-                          styles.relativeDayBadge,
-                          relativeDate === 'Today' ? styles.todayBadge : styles.tomorrowBadge,
-                        ]}
-                      >
+                <View style={styles.cardBody}>
+                  {/* Top Badge & Admin Action Row */}
+                  <View style={styles.cardHeaderRow}>
+                    <View style={styles.badgesLine}>
+                      <View style={[styles.scopeTag, isPublic ? styles.scopeTagPublic : styles.scopeTagPrivate]}>
                         <Ionicons
-                          name={relativeDate === 'Today' ? 'sparkles' : 'time-outline'}
-                          size={10}
-                          color={relativeDate === 'Today' ? '#0284C7' : '#7C3AED'}
+                          name={isPublic ? 'globe-outline' : 'shield-checkmark-outline'}
+                          size={11}
+                          color={isPublic ? '#92400E' : COLORS.brandNavy}
                         />
-                        <Text
-                          style={[
-                            styles.relativeDayText,
-                            relativeDate === 'Today' ? styles.todayText : styles.tomorrowText,
-                          ]}
-                        >
-                          {relativeDate}
+                        <Text style={[styles.scopeTagText, isPublic ? styles.scopeTagTextPublic : styles.scopeTagTextPrivate]}>
+                          {isPublic ? 'Public Event' : 'Association Only'}
                         </Text>
                       </View>
-                    )}
 
-                    {item.trackAttendance && (
-                      <View style={styles.attendancePill}>
-                        <Ionicons name="qr-code-outline" size={10} color={COLORS.brandTeal} />
-                        <Text style={styles.attendancePillText}>Check-in Active</Text>
-                      </View>
-                    )}
-
-                    {item.rsvp && (
-                      <View style={[styles.rsvpMiniBadge, isGoing ? styles.rsvpMiniGoing : styles.rsvpMiniMaybe]}>
-                        <Text style={[styles.rsvpMiniText, isGoing ? styles.rsvpMiniTextGoing : styles.rsvpMiniTextMaybe]}>
-                          {isGoing ? 'Going ✓' : 'Maybe'}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Association Admin Quick Delete on Top Right */}
-                  {isAssociationAdmin && (
-                    <TouchableOpacity
-                      style={styles.cardTopDeleteBtn}
-                      activeOpacity={0.7}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleDeleteEvent(item);
-                      }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="trash-outline" size={14} color="#EF4444" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Main Card Content */}
-                <View style={styles.cardContentRow}>
-                  {/* Clean Date Badge */}
-                  <View style={styles.dateBadge}>
-                    <View style={styles.dateBadgeHeader}>
-                      <Text style={styles.dateBadgeMonth}>{item.month.toUpperCase()}</Text>
-                    </View>
-                    <View style={styles.dateBadgeBody}>
-                      <Text style={styles.dateBadgeDay}>{item.day}</Text>
+                      {/* Today / Tomorrow Light Text Badge */}
                       {relativeDate && (
-                        <Text
+                        <View
                           style={[
-                            styles.dateBadgeRelativeLightText,
-                            relativeDate === 'Today' ? styles.todayLightText : styles.tomorrowLightText,
+                            styles.relativeDayBadge,
+                            relativeDate === 'Today' ? styles.todayBadge : styles.tomorrowBadge,
                           ]}
                         >
-                          {relativeDate}
-                        </Text>
+                          <Ionicons
+                            name={relativeDate === 'Today' ? 'sparkles' : 'time-outline'}
+                            size={10}
+                            color={relativeDate === 'Today' ? '#0284C7' : '#7C3AED'}
+                          />
+                          <Text
+                            style={[
+                              styles.relativeDayText,
+                              relativeDate === 'Today' ? styles.todayText : styles.tomorrowText,
+                            ]}
+                          >
+                            {relativeDate}
+                          </Text>
+                        </View>
+                      )}
+
+                      {item.rsvp && (
+                        <View style={[styles.rsvpMiniBadge, isGoing ? styles.rsvpMiniGoing : styles.rsvpMiniMaybe]}>
+                          <Text style={[styles.rsvpMiniText, isGoing ? styles.rsvpMiniTextGoing : styles.rsvpMiniTextMaybe]}>
+                            {isGoing ? 'Going ✓' : 'Maybe'}
+                          </Text>
+                        </View>
                       )}
                     </View>
+
+                    {/* Association Admin Quick Delete on Top Right */}
+                    {isAssociationAdmin && (
+                      <TouchableOpacity
+                        style={styles.cardTopDeleteBtn}
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDeleteEvent(item);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="trash-outline" size={14} color="#EF4444" />
+                      </TouchableOpacity>
+                    )}
                   </View>
 
-                  {/* Right Details Column */}
-                  <View style={styles.cardRightColumn}>
-                    <Text style={styles.eventTitle} numberOfLines={2}>
-                      {item.title}
-                    </Text>
-
-                    <View style={styles.metaRow}>
-                      <Ionicons name="location-outline" size={13} color="#64748B" />
-                      <Text style={styles.metaText} numberOfLines={1}>{item.venue}</Text>
+                  {/* Main Card Content */}
+                  <View style={styles.cardContentRow}>
+                    {/* Clean Date Badge */}
+                    <View style={styles.dateBadge}>
+                      <View style={styles.dateBadgeHeader}>
+                        <Text style={styles.dateBadgeMonth}>{item.month.toUpperCase()}</Text>
+                      </View>
+                      <View style={styles.dateBadgeBody}>
+                        <Text style={styles.dateBadgeDay}>{item.day}</Text>
+                        {relativeDate && (
+                          <Text
+                            style={[
+                              styles.dateBadgeRelativeLightText,
+                              relativeDate === 'Today' ? styles.todayLightText : styles.tomorrowLightText,
+                            ]}
+                          >
+                            {relativeDate}
+                          </Text>
+                        )}
+                      </View>
                     </View>
 
-                    <View style={styles.metaRow}>
-                      <Ionicons name="time-outline" size={13} color="#64748B" />
-                      <Text style={styles.metaText} numberOfLines={1}>{item.time}</Text>
+                    {/* Right Details Column */}
+                    <View style={styles.cardRightColumn}>
+                      <Text style={styles.eventTitle} numberOfLines={2}>
+                        {item.title}
+                      </Text>
+
+                      <View style={styles.metaRow}>
+                        <Ionicons name="location-outline" size={13} color="#64748B" />
+                        <Text style={styles.metaText} numberOfLines={1}>{item.venue}</Text>
+                      </View>
+
+                      <View style={styles.metaRow}>
+                        <Ionicons name="time-outline" size={13} color="#64748B" />
+                        <Text style={styles.metaText} numberOfLines={1}>{item.time}</Text>
+                      </View>
+
+                      <Text style={styles.hostText} numberOfLines={1}>
+                        Organized by {item.byAssociation.replace(' (yours)', '')}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Subtle Divider */}
+                  <View style={styles.cardDivider} />
+
+                  {/* Clean Card Footer: RSVP on Left, Scanner on Right */}
+                  <View style={styles.cardFooter}>
+                    {/* RSVP Toggle Buttons */}
+                    <View style={styles.rsvpButtonGroup}>
+                      <TouchableOpacity
+                        style={[styles.rsvpBtn, isGoing ? styles.rsvpBtnGoingActive : styles.rsvpBtnInactive]}
+                        activeOpacity={0.75}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          toggleRSVP(item.id, 'going');
+                        }}
+                      >
+                        <Ionicons
+                          name={isGoing ? 'checkmark-circle' : 'checkmark-outline'}
+                          size={13}
+                          color={isGoing ? '#FFFFFF' : '#475569'}
+                        />
+                        <Text style={[styles.rsvpBtnLabel, isGoing && styles.rsvpBtnLabelActive]}>
+                          Going
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.rsvpBtn, isMaybe ? styles.rsvpBtnMaybeActive : styles.rsvpBtnInactive]}
+                        activeOpacity={0.75}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          toggleRSVP(item.id, 'maybe');
+                        }}
+                      >
+                        <Text style={[styles.rsvpBtnLabel, isMaybe && styles.rsvpBtnLabelActive]}>
+                          Maybe
+                        </Text>
+                      </TouchableOpacity>
                     </View>
 
-                    <Text style={styles.hostText} numberOfLines={1}>
-                      Organized by {item.byAssociation.replace(' (yours)', '')}
-                    </Text>
-                  </View>
-                </View>
+                    {/* Right Action Buttons */}
+                    <View style={styles.actionRightButtons}>
+                      {/* QR Scan Button for Attendance Tracking */}
+                      {item.trackAttendance && (
+                        <TouchableOpacity
+                          style={styles.cardScanBtn}
+                          activeOpacity={0.8}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleOpenScanner(item);
+                          }}
+                        >
+                          <Ionicons name="scan-outline" size={13} color={COLORS.brandTeal} />
+                          <Text style={styles.cardScanBtnText}>Scan</Text>
+                        </TouchableOpacity>
+                      )}
 
-                {/* Subtle Divider */}
-                <View style={styles.cardDivider} />
-
-                {/* Clean Card Footer: RSVP on Left, Pass & Scanner on Right */}
-                <View style={styles.cardFooter}>
-                  {/* RSVP Toggle Buttons */}
-                  <View style={styles.rsvpButtonGroup}>
-                    <TouchableOpacity
-                      style={[styles.rsvpBtn, isGoing ? styles.rsvpBtnGoingActive : styles.rsvpBtnInactive]}
-                      activeOpacity={0.75}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        toggleRSVP(item.id, 'going');
-                      }}
-                    >
-                      <Ionicons
-                        name={isGoing ? 'checkmark-circle' : 'checkmark-outline'}
-                        size={13}
-                        color={isGoing ? '#FFFFFF' : '#475569'}
-                      />
-                      <Text style={[styles.rsvpBtnLabel, isGoing && styles.rsvpBtnLabelActive]}>
-                        Going
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.rsvpBtn, isMaybe ? styles.rsvpBtnMaybeActive : styles.rsvpBtnInactive]}
-                      activeOpacity={0.75}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        toggleRSVP(item.id, 'maybe');
-                      }}
-                    >
-                      <Text style={[styles.rsvpBtnLabel, isMaybe && styles.rsvpBtnLabelActive]}>
-                        Maybe
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Right Action Buttons */}
-                  <View style={styles.actionRightButtons}>
-                    {/* Event QR Pass Button */}
-                    {item.trackAttendance && (
-                      <TouchableOpacity
-                        style={styles.cardQrBtn}
-                        activeOpacity={0.8}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          setQrCodeEvent(item);
-                        }}
-                      >
-                        <Ionicons name="qr-code-outline" size={13} color={COLORS.brandNavy} />
-                        <Text style={styles.cardQrBtnText}>QR Pass</Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {/* QR Scan Button for Attendance Tracking */}
-                    {item.trackAttendance && (
-                      <TouchableOpacity
-                        style={styles.cardScanBtn}
-                        activeOpacity={0.8}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleOpenScanner(item);
-                        }}
-                      >
-                        <Ionicons name="scan-outline" size={13} color={COLORS.brandTeal} />
-                        <Text style={styles.cardScanBtnText}>Scan</Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {/* Attendance roster for leaders */}
-                    {item.trackAttendance && canTrackAttendance && (
-                      <TouchableOpacity
-                        style={styles.cardRosterBtn}
-                        activeOpacity={0.8}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          selectEventForAttendance(item);
-                        }}
-                      >
-                        <Ionicons name="people-outline" size={13} color={COLORS.brandNavy} />
-                      </TouchableOpacity>
-                    )}
+                      {/* Attendance roster for leaders */}
+                      {item.trackAttendance && canTrackAttendance && (
+                        <TouchableOpacity
+                          style={styles.cardRosterBtn}
+                          activeOpacity={0.8}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            selectEventForAttendance(item);
+                          }}
+                        >
+                          <Ionicons name="people-outline" size={13} color={COLORS.brandNavy} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -970,10 +950,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    padding: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    gap: 10,
     shadowColor: '#002B5C',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -983,24 +961,25 @@ const styles = StyleSheet.create({
   },
   cardThumbnailWrapper: {
     width: '100%',
-    height: 125,
-    marginTop: -14,
-    marginHorizontal: -14,
-    marginBottom: 2,
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
+    aspectRatio: 16 / 9,
+    backgroundColor: '#0F172A',
     overflow: 'hidden',
   },
   cardThumbnailImage: {
     width: '100%',
     height: '100%',
   },
+  cardBody: {
+    padding: 14,
+    gap: 10,
+  },
   modalBannerWrapper: {
     width: '100%',
-    height: 140,
+    aspectRatio: 16 / 9,
     borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: 4,
+    backgroundColor: '#0F172A',
+    marginBottom: 8,
   },
   modalBannerImage: {
     width: '100%',
