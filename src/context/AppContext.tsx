@@ -8,6 +8,7 @@ import {
   Pastor,
   AssociationEvent,
   PrayerRequest,
+  PrayerComment,
   Notice,
   DonationRecord,
   PastorRole,
@@ -17,6 +18,7 @@ import {
 } from '../types';
 import { FirestoreService } from '../services/firestoreService';
 import { generateMeaningfulCode } from '../utils/codeGenerator';
+import { INITIAL_PRAYERS } from '../data/mockData';
 
 interface AppContextType {
   // Navigation & screens
@@ -143,7 +145,15 @@ interface AppContextType {
   // Prayers
   prayers: PrayerRequest[];
   togglePrayer: (prayerId: string) => void;
-  addPrayer: (text: string, tag: 'HEALTH' | 'MINISTRY' | 'FAMILY' | 'CHURCH', leadersOnly: boolean) => void;
+  addPrayer: (
+    text: string,
+    tag: 'HEALTH' | 'MINISTRY' | 'FAMILY' | 'CHURCH',
+    leadersOnly: boolean,
+    isGlobal?: boolean,
+    isUrgent?: boolean
+  ) => void;
+  deletePrayer: (prayerId: string) => void;
+  addPrayerComment: (prayerId: string, commentText: string) => void;
 
   // Attendance
   attendanceMap: Record<string, boolean>;
@@ -237,7 +247,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [allEvents, setAllEvents] = useState<AssociationEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<AssociationEvent | null>(null);
 
-  const [prayers, setPrayers] = useState<PrayerRequest[]>([]);
+  const [prayers, setPrayers] = useState<PrayerRequest[]>(INITIAL_PRAYERS);
   const [notices] = useState<Notice[]>([]);
   const [donations, setDonations] = useState<DonationRecord[]>([]);
 
@@ -973,23 +983,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addPrayer = (
     text: string,
     tag: 'HEALTH' | 'MINISTRY' | 'FAMILY' | 'CHURCH',
-    leadersOnly: boolean
+    leadersOnly: boolean,
+    isGlobal: boolean = false,
+    isUrgent: boolean = false
   ) => {
     const newPrayer: PrayerRequest = {
       id: `pr-${Date.now()}`,
       associationId: currentAssociation.id,
-      pastorName: currentUser.name,
-      mandal: currentAssociation.mandal,
+      pastorName: loggedPastor?.name || currentUser.name || 'Pastor Member',
+      mandal: currentAssociation.mandal || currentUser.district || 'Fellowship',
       timeAgo: 'Just now',
       tag,
       text,
-      isGlobal: false,
+      isGlobal,
       leadersOnly,
       prayedByMe: true,
       prayedCount: 1,
+      isUrgent,
+      comments: [],
     };
     setPrayers((prev) => [newPrayer, ...prev]);
     FirestoreService.savePrayer(newPrayer).catch(console.warn);
+  };
+
+  const deletePrayer = (prayerId: string) => {
+    const target = prayers.find((p) => p.id === prayerId);
+    setPrayers((prev) => prev.filter((p) => p.id !== prayerId));
+    if (target) {
+      FirestoreService.deletePrayer(prayerId, target.associationId).catch(console.warn);
+    }
+  };
+
+  const addPrayerComment = (prayerId: string, commentText: string) => {
+    const newComment: PrayerComment = {
+      id: `pc-${Date.now()}`,
+      authorName: loggedPastor?.name || currentUser.name || 'Fellow Pastor',
+      text: commentText,
+      timeAgo: 'Just now',
+    };
+    setPrayers((prev) =>
+      prev.map((p) => {
+        if (p.id === prayerId) {
+          const updated: PrayerRequest = {
+            ...p,
+            comments: [...(p.comments || []), newComment],
+          };
+          FirestoreService.savePrayer(updated).catch(console.warn);
+          return updated;
+        }
+        return p;
+      })
+    );
   };
 
   const toggleAttendance = (pastorId: string) => {
@@ -1061,6 +1105,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         prayers: activePrayers,
         togglePrayer,
         addPrayer,
+        deletePrayer,
+        addPrayerComment,
         attendanceMap,
         toggleAttendance,
         markAllAttendance,

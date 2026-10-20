@@ -85,7 +85,95 @@ export const INITIAL_EVENTS: AssociationEvent[] = [
     endTime: '03:00 PM',
   },
 ];
-export const INITIAL_PRAYERS: PrayerRequest[] = [];
+export const INITIAL_PRAYERS: PrayerRequest[] = [
+  {
+    id: 'pr-1',
+    associationId: 'global',
+    pastorName: 'Pastor P. Joshua',
+    mandal: 'Vijayawada Urban',
+    timeAgo: '1h ago',
+    tag: 'HEALTH',
+    text: 'Please hold Deacon John in your earnest prayers. He was admitted with a severe lung infection this morning. Believing the Lord for complete healing and restoration.',
+    isGlobal: true,
+    leadersOnly: false,
+    prayedByMe: true,
+    prayedCount: 16,
+    isUrgent: true,
+    comments: [
+      {
+        id: 'c-1',
+        authorName: 'Pastor K. David',
+        text: 'Standing in agreement for divine healing! Jeremiah 30:17.',
+        timeAgo: '45m ago',
+      },
+      {
+        id: 'c-2',
+        authorName: 'Pastor M. Abraham',
+        text: 'Praying with our congregation tonight for Deacon John.',
+        timeAgo: '20m ago',
+      },
+    ],
+  },
+  {
+    id: 'pr-2',
+    associationId: 'global',
+    pastorName: 'Pastor K. David',
+    mandal: 'Guntur Rural',
+    timeAgo: '3h ago',
+    tag: 'MINISTRY',
+    text: 'We are organizing a 3-day Youth Gospel Outreach this weekend across 6 villages. Pray for hearts to be open to receive Christ and for divine protection over our young evangelism team.',
+    isGlobal: false,
+    leadersOnly: false,
+    prayedByMe: false,
+    prayedCount: 24,
+    isUrgent: false,
+    comments: [
+      {
+        id: 'c-3',
+        authorName: 'Pastor S. Samuel',
+        text: 'May the Lord grant a bountiful harvest of souls! Amen.',
+        timeAgo: '2h ago',
+      },
+    ],
+  },
+  {
+    id: 'pr-3',
+    associationId: 'global',
+    pastorName: 'Pastor M. Abraham',
+    mandal: 'Eluru City',
+    timeAgo: 'Yesterday',
+    tag: 'CHURCH',
+    text: 'Our congregation is finalizing the municipal approval and layout permissions for the new fellowship worship hall. Please pray for favor before administrative authorities.',
+    isGlobal: true,
+    leadersOnly: false,
+    prayedByMe: false,
+    prayedCount: 19,
+    isUrgent: false,
+    comments: [],
+  },
+  {
+    id: 'pr-4',
+    associationId: 'global',
+    pastorName: 'Pastor S. Samuel',
+    mandal: 'Tenali Mandal',
+    timeAgo: '2 days ago',
+    tag: 'FAMILY',
+    text: 'Thanksgiving to our Heavenly Father! Sister Grace delivered a healthy baby girl. Please pray for mother and child’s continued strength and divine peace in their home.',
+    isGlobal: false,
+    leadersOnly: false,
+    prayedByMe: true,
+    prayedCount: 12,
+    isUrgent: false,
+    comments: [
+      {
+        id: 'c-4',
+        authorName: 'Pastor P. Joshua',
+        text: 'Praise the Lord! Congratulations and prayers for the whole family.',
+        timeAgo: '1 day ago',
+      },
+    ],
+  },
+];
 export const INITIAL_NOTICES: Notice[] = [];
 export const INITIAL_DONATIONS: DonationRecord[] = [];
 

@@ -431,6 +431,25 @@ export const FirestoreService = {
   },
 
   /**
+   * Delete a prayer request from Firestore
+   */
+  async deletePrayer(prayerId: string, associationId?: string): Promise<boolean> {
+    if (!db) return true;
+    try {
+      const promises: Promise<void>[] = [];
+      if (associationId) {
+        promises.push(deleteDoc(doc(db, 'associations', associationId, 'prayers', prayerId)));
+      }
+      promises.push(deleteDoc(doc(db, 'prayers', prayerId)));
+      await Promise.all(promises);
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to delete prayer from Firestore:', error);
+      return false;
+    }
+  },
+
+  /**
    * Save a donation record to Firestore
    * Stored under the association subcollection: /associations/{associationId}/donations/{donationId}
    */

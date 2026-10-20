@@ -141,6 +141,13 @@ export interface AssociationEvent {
   thumbnailUrl?: string;
 }
 
+export interface PrayerComment {
+  id: string;
+  authorName: string;
+  text: string;
+  timeAgo: string;
+}
+
 export interface PrayerRequest {
   id: string;
   associationId?: string;
@@ -153,6 +160,8 @@ export interface PrayerRequest {
   leadersOnly: boolean;
   prayedByMe: boolean;
   prayedCount: number;
+  isUrgent?: boolean;
+  comments?: PrayerComment[];
 }
 
 export interface Notice {
