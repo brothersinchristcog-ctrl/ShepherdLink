@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   Modal,
   Share,
   KeyboardAvoidingView,
@@ -188,16 +187,44 @@ export const PrayerScreen: React.FC = () => {
   const [isGlobalScope, setIsGlobalScope] = useState(false);
   const [isUrgent, setIsUrgent] = useState(false);
   const [leadersOnly, setLeadersOnly] = useState(false);
+  const [postError, setPostError] = useState('');
 
   // Add New Category Modal State
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [selectedCategoryIcon, setSelectedCategoryIcon] = useState<keyof typeof Ionicons.glyphMap>('sparkles');
   const [addCategoryContext, setAddCategoryContext] = useState<'filter' | 'compose'>('filter');
+  const [categoryError, setCategoryError] = useState('');
 
   // Encourage / Comments Modal State
   const [activeCommentPrayer, setActiveCommentPrayer] = useState<PrayerRequest | null>(null);
   const [commentInput, setCommentInput] = useState('');
+
+  // Beautiful Custom Delete Confirmation Modal State
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    description: string;
+    previewText?: string;
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    description: '',
+    onConfirm: () => {},
+  });
+
+  // Beautiful Custom Success / Celebration Modal State
+  const [successModal, setSuccessModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    scripture?: string;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   // Counts
   const counts = useMemo(() => {
@@ -251,6 +278,7 @@ export const PrayerScreen: React.FC = () => {
   const handleOpenAddCategory = (context: 'filter' | 'compose') => {
     setAddCategoryContext(context);
     setNewCategoryName('');
+    setCategoryError('');
     setSelectedCategoryIcon('sparkles');
     setShowAddCategoryModal(true);
   };
@@ -258,9 +286,10 @@ export const PrayerScreen: React.FC = () => {
   const handleSaveNewCategory = () => {
     const trimmed = newCategoryName.trim();
     if (!trimmed) {
-      Alert.alert('Category Name Required', 'Please type a name for the new category.');
+      setCategoryError('Please type a name for the new category.');
       return;
     }
+    setCategoryError('');
 
     const key = trimmed.toUpperCase().replace(/\s+/g, '_');
 
@@ -278,40 +307,44 @@ export const PrayerScreen: React.FC = () => {
 
     setShowAddCategoryModal(false);
     setNewCategoryName('');
-    Alert.alert('Category Added', `"${trimmed}" is now available in categories.`);
+
+    // Trigger celebration modal
+    setSuccessModal({
+      visible: true,
+      title: 'Category Created! ✨',
+      message: `"${trimmed}" is now available in your prayer categories.`,
+    });
   };
 
   const handleDeleteCategory = (catKey: string) => {
     const config = getTagConfig(catKey);
-    Alert.alert(
-      'Delete Category',
-      `Are you sure you want to delete the category "${config.label}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setUserCategories((prev) =>
-              prev.filter((c) => c.toUpperCase() !== catKey.toUpperCase())
-            );
-            if (tagFilter.toUpperCase() === catKey.toUpperCase()) {
-              setTagFilter('ALL');
-            }
-            if (selectedTag.toUpperCase() === catKey.toUpperCase()) {
-              setSelectedTag('HEALTH');
-            }
-          },
-        },
-      ]
-    );
+    setDeleteConfirmModal({
+      visible: true,
+      title: 'Delete Category?',
+      description: `Are you sure you want to delete the category "${config.label}"? It will be removed from your filters and options.`,
+      previewText: `Category: ${config.label}`,
+      onConfirm: () => {
+        setUserCategories((prev) =>
+          prev.filter((c) => c.toUpperCase() !== catKey.toUpperCase())
+        );
+        if (tagFilter.toUpperCase() === catKey.toUpperCase()) {
+          setTagFilter('ALL');
+        }
+        if (selectedTag.toUpperCase() === catKey.toUpperCase()) {
+          setSelectedTag('HEALTH');
+        }
+        setDeleteConfirmModal((prev) => ({ ...prev, visible: false }));
+      },
+    });
   };
 
   const handlePostPrayer = () => {
     if (!requestText.trim()) {
-      Alert.alert('Empty Request', 'Please describe your prayer need before posting.');
+      setPostError('Please describe your prayer need before posting.');
       return;
     }
+    setPostError('');
+
     addPrayer(
       requestText.trim(),
       selectedTag,
@@ -319,50 +352,51 @@ export const PrayerScreen: React.FC = () => {
       isGlobalScope,
       isUrgent
     );
+
     setRequestText('');
     setIsUrgent(false);
     setLeadersOnly(false);
     setShowCreateModal(false);
-    Alert.alert('Shared in Faith', 'Your prayer request has been posted to the fellowship.');
+
+    // Trigger beautiful celebration modal
+    setSuccessModal({
+      visible: true,
+      title: 'Shared in Faith! 🙏',
+      message: 'Your prayer request has been posted to the fellowship. Pastors are standing in agreement with you.',
+      scripture: '"For where two or three gather in my name, there am I with them." — Matthew 18:20',
+    });
   };
 
-  const handleDelete = (prayer: PrayerRequest) => {
-    Alert.alert(
-      'Delete Prayer Request',
-      `Are you sure you want to remove this prayer request from ${prayer.pastorName}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deletePrayer(prayer.id),
-        },
-      ]
-    );
+  const handleDeletePrayer = (prayer: PrayerRequest) => {
+    setDeleteConfirmModal({
+      visible: true,
+      title: 'Delete Prayer Request?',
+      description: `Are you sure you want to remove this prayer request from ${prayer.pastorName}?`,
+      previewText: prayer.text,
+      onConfirm: () => {
+        deletePrayer(prayer.id);
+        setDeleteConfirmModal((prev) => ({ ...prev, visible: false }));
+      },
+    });
   };
 
   const handleDeleteComment = (prayerId: string, commentId: string) => {
-    Alert.alert(
-      'Delete Encouragement',
-      'Are you sure you want to remove this encouraging comment?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            deletePrayerComment(prayerId, commentId);
-            setActiveCommentPrayer((prev) => {
-              if (!prev) return null;
-              return {
-                ...prev,
-                comments: (prev.comments || []).filter((c) => c.id !== commentId),
-              };
-            });
-          },
-        },
-      ]
-    );
+    setDeleteConfirmModal({
+      visible: true,
+      title: 'Delete Encouragement?',
+      description: 'Are you sure you want to remove this encouraging comment from the prayer card?',
+      onConfirm: () => {
+        deletePrayerComment(prayerId, commentId);
+        setActiveCommentPrayer((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            comments: (prev.comments || []).filter((c) => c.id !== commentId),
+          };
+        });
+        setDeleteConfirmModal((prev) => ({ ...prev, visible: false }));
+      },
+    });
   };
 
   const handleShare = async (prayer: PrayerRequest) => {
@@ -415,7 +449,10 @@ export const PrayerScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.headerCreateBtn}
             activeOpacity={0.85}
-            onPress={() => setShowCreateModal(true)}
+            onPress={() => {
+              setPostError('');
+              setShowCreateModal(true);
+            }}
           >
             <Ionicons name="add" size={16} color="#FFFFFF" />
             <Text style={styles.headerCreateBtnText}>Request</Text>
@@ -595,7 +632,10 @@ export const PrayerScreen: React.FC = () => {
         <TouchableOpacity
           style={styles.invitationCard}
           activeOpacity={0.88}
-          onPress={() => setShowCreateModal(true)}
+          onPress={() => {
+            setPostError('');
+            setShowCreateModal(true);
+          }}
         >
           <View style={styles.invitationIconCircle}>
             <Ionicons name="heart-circle" size={26} color={COLORS.brandTeal} />
@@ -661,11 +701,11 @@ export const PrayerScreen: React.FC = () => {
                       </Text>
                     </View>
 
-                    {/* Delete Option on Prayer Card */}
+                    {/* Beautiful Delete Option on Prayer Card */}
                     <TouchableOpacity
                       style={styles.trashBtn}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      onPress={() => handleDelete(item)}
+                      onPress={() => handleDeletePrayer(item)}
                       activeOpacity={0.7}
                     >
                       <Ionicons name="trash-outline" size={14} color="#EF4444" />
@@ -786,7 +826,7 @@ export const PrayerScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* Modern Share Prayer Request Modal */}
+      {/* Modern, Beautiful "Share Prayer Request" Modal */}
       <Modal
         visible={showCreateModal}
         transparent
@@ -807,11 +847,16 @@ export const PrayerScreen: React.FC = () => {
               <View style={styles.modalHandle} />
 
               <View style={styles.modalHeaderRow}>
-                <View>
-                  <Text style={styles.modalTitle}>Share a Prayer Need</Text>
-                  <Text style={styles.modalSub}>
-                    Pastors across the fellowship will pray in agreement
-                  </Text>
+                <View style={styles.modalHeaderTitleGroup}>
+                  <View style={styles.modalHeaderIconBadge}>
+                    <Ionicons name="heart" size={18} color={COLORS.brandTeal} />
+                  </View>
+                  <View>
+                    <Text style={styles.modalTitle}>Share a Prayer Need</Text>
+                    <Text style={styles.modalSub}>
+                      Pastors across the fellowship will pray in agreement
+                    </Text>
+                  </View>
                 </View>
 
                 <TouchableOpacity
@@ -831,14 +876,23 @@ export const PrayerScreen: React.FC = () => {
                 {/* Need Description Text Area */}
                 <Text style={styles.fieldLabel}>Your Prayer Request *</Text>
                 <TextInput
-                  style={styles.modalTextArea}
+                  style={[styles.modalTextArea, !!postError && styles.inputErrorBorder]}
                   placeholder="Describe the prayer need, healing request, or praise report..."
                   placeholderTextColor="#94A3B8"
                   multiline
                   numberOfLines={4}
                   value={requestText}
-                  onChangeText={setRequestText}
+                  onChangeText={(text) => {
+                    setRequestText(text);
+                    if (postError) setPostError('');
+                  }}
                 />
+                {!!postError && (
+                  <View style={styles.inlineErrorRow}>
+                    <Ionicons name="alert-circle" size={13} color="#DC2626" />
+                    <Text style={styles.inlineErrorText}>{postError}</Text>
+                  </View>
+                )}
 
                 {/* Category Tag Selector with + New button */}
                 <View style={styles.categoryHeaderRow}>
@@ -1023,13 +1077,22 @@ export const PrayerScreen: React.FC = () => {
               {/* Name Input */}
               <Text style={styles.fieldLabel}>Category Name *</Text>
               <TextInput
-                style={styles.categoryNameInput}
+                style={[styles.categoryNameInput, !!categoryError && styles.inputErrorBorder]}
                 placeholder="e.g. Youth, Deliverance, Outreach, Finances..."
                 placeholderTextColor="#94A3B8"
                 value={newCategoryName}
-                onChangeText={setNewCategoryName}
+                onChangeText={(t) => {
+                  setNewCategoryName(t);
+                  if (categoryError) setCategoryError('');
+                }}
                 autoFocus
               />
+              {!!categoryError && (
+                <View style={styles.inlineErrorRow}>
+                  <Ionicons name="alert-circle" size={13} color="#DC2626" />
+                  <Text style={styles.inlineErrorText}>{categoryError}</Text>
+                </View>
+              )}
 
               {/* Icon Picker Chips */}
               <Text style={styles.fieldLabel}>Choose an Icon</Text>
@@ -1084,12 +1147,12 @@ export const PrayerScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* Manage Custom Categories Section */}
+              {/* Manage Custom Categories Section with Delete Option */}
               {userCategories.filter(
                 (c) => !['HEALTH', 'MINISTRY', 'FAMILY', 'CHURCH'].includes(c.toUpperCase())
               ).length > 0 && (
                 <View style={styles.manageCategorySection}>
-                  <Text style={styles.manageCategoryHeader}>Custom Categories</Text>
+                  <Text style={styles.manageCategoryHeader}>Custom Categories (Tap to Delete)</Text>
                   <View style={styles.customCategoryList}>
                     {userCategories
                       .filter(
@@ -1108,6 +1171,7 @@ export const PrayerScreen: React.FC = () => {
                               style={styles.deleteCategoryBtn}
                               onPress={() => handleDeleteCategory(cKey)}
                               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                              activeOpacity={0.7}
                             >
                               <Ionicons name="trash-outline" size={13} color="#EF4444" />
                               <Text style={styles.deleteCategoryBtnText}>Delete</Text>
@@ -1261,6 +1325,114 @@ export const PrayerScreen: React.FC = () => {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ======================================================== */}
+      {/* BEAUTIFUL CUSTOM DELETE CONFIRMATION MODAL POPUP */}
+      {/* ======================================================== */}
+      <Modal
+        visible={deleteConfirmModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteConfirmModal((prev) => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.alertOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setDeleteConfirmModal((prev) => ({ ...prev, visible: false }))}
+          />
+          <View style={styles.alertCard}>
+            {/* Glowing Red Icon Circle */}
+            <View style={styles.alertIconOuterGlow}>
+              <View style={styles.alertIconInnerCircle}>
+                <Ionicons name="trash" size={26} color="#DC2626" />
+              </View>
+            </View>
+
+            <Text style={styles.alertTitle}>{deleteConfirmModal.title}</Text>
+            <Text style={styles.alertDesc}>{deleteConfirmModal.description}</Text>
+
+            {/* Optional Snippet Preview */}
+            {!!deleteConfirmModal.previewText && (
+              <View style={styles.alertPreviewBox}>
+                <Text style={styles.alertPreviewText} numberOfLines={3}>
+                  {deleteConfirmModal.previewText}
+                </Text>
+              </View>
+            )}
+
+            <Text style={styles.alertWarningNote}>⚠️ This action cannot be undone.</Text>
+
+            {/* Action Buttons */}
+            <View style={styles.alertButtonRow}>
+              <TouchableOpacity
+                style={styles.alertCancelBtn}
+                activeOpacity={0.75}
+                onPress={() => setDeleteConfirmModal((prev) => ({ ...prev, visible: false }))}
+              >
+                <Text style={styles.alertCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.alertDeleteBtn}
+                activeOpacity={0.85}
+                onPress={deleteConfirmModal.onConfirm}
+              >
+                <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.alertDeleteBtnText}>Yes, Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ======================================================== */}
+      {/* BEAUTIFUL CUSTOM SUCCESS / CELEBRATION MODAL POPUP */}
+      {/* ======================================================== */}
+      <Modal
+        visible={successModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSuccessModal((prev) => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.alertOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setSuccessModal((prev) => ({ ...prev, visible: false }))}
+          />
+          <View style={styles.celebrationCard}>
+            {/* Glowing Teal/Green Celebration Icon Badge */}
+            <View style={styles.celebrationGlowRing}>
+              <View style={styles.celebrationIconBadge}>
+                <Ionicons name="checkmark-done" size={28} color="#FFFFFF" />
+              </View>
+            </View>
+
+            <Text style={styles.celebrationTitle}>{successModal.title}</Text>
+            <Text style={styles.celebrationMessage}>{successModal.message}</Text>
+
+            {/* Scripture / Quote Box */}
+            {!!successModal.scripture && (
+              <View style={styles.celebrationScriptureBox}>
+                <Ionicons name="sparkles" size={15} color={COLORS.brandTeal} />
+                <Text style={styles.celebrationScriptureText}>
+                  {successModal.scripture}
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.celebrationConfirmBtn}
+              activeOpacity={0.85}
+              onPress={() => setSuccessModal((prev) => ({ ...prev, visible: false }))}
+            >
+              <Text style={styles.celebrationConfirmBtnText}>Continue in Fellowship</Text>
+              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -1723,44 +1895,65 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 34 : 24,
     maxHeight: '88%',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modalHandle: {
-    width: 40,
-    height: 4,
+    width: 44,
+    height: 5,
     backgroundColor: '#CBD5E1',
-    borderRadius: 2,
+    borderRadius: 3,
     alignSelf: 'center',
     marginBottom: 12,
   },
   modalHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 14,
   },
+  modalHeaderTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  modalHeaderIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E6F7F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
   },
   modalSub: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 1,
   },
   modalCloseBtn: {
-    padding: 4,
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
   },
   modalScroll: {
     marginBottom: 8,
@@ -1778,15 +1971,30 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   modalTextArea: {
-    minHeight: 85,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 10,
+    minHeight: 90,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
     padding: 12,
     fontSize: 14,
     color: '#0F172A',
     textAlignVertical: 'top',
     backgroundColor: '#F8FAFC',
+  },
+  inputErrorBorder: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  inlineErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  inlineErrorText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '600',
   },
 
   /* Modal Tag Grid */
@@ -1794,7 +2002,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: 14,
     marginBottom: 8,
   },
   addCategoryModalBtn: {
@@ -1852,7 +2060,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 11,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1886,7 +2094,7 @@ const styles = StyleSheet.create({
   checkbox: {
     width: 20,
     height: 20,
-    borderRadius: 4,
+    borderRadius: 5,
     borderWidth: 1.5,
     borderColor: '#CBD5E1',
     alignItems: 'center',
@@ -1921,9 +2129,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: COLORS.brandNavy,
-    paddingVertical: 13,
+    paddingVertical: 14,
     borderRadius: 12,
     marginTop: 4,
+    shadowColor: COLORS.brandNavy,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   modalSubmitBtnText: {
     color: '#FFFFFF',
@@ -1934,23 +2147,23 @@ const styles = StyleSheet.create({
   /* Add Category Modal */
   categoryBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
   categoryCardModal: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 22,
     padding: 20,
     width: '100%',
     maxWidth: 380,
     gap: 8,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 10,
   },
   categoryModalHeader: {
     flexDirection: 'row',
@@ -1965,9 +2178,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#E6F7F7',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1983,8 +2196,8 @@ const styles = StyleSheet.create({
   },
   categoryNameInput: {
     height: 44,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
     borderRadius: 10,
     paddingHorizontal: 12,
     fontSize: 14,
@@ -2065,9 +2278,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   manageCategoryHeader: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+    color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
     marginBottom: 4,
@@ -2102,8 +2315,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: '#FEF2F2',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#FECACA',
@@ -2251,5 +2464,214 @@ const styles = StyleSheet.create({
   },
   commentSendBtnDisabled: {
     backgroundColor: '#CBD5E1',
+  },
+
+  /* ======================================================== */
+  /* BEAUTIFUL CUSTOM DELETE CONFIRMATION MODAL STYLES */
+  /* ======================================================== */
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+  },
+  alertCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  alertIconOuterGlow: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  alertIconInnerCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  alertDesc: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 8,
+  },
+  alertPreviewBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 10,
+    marginTop: 12,
+    width: '100%',
+  },
+  alertPreviewText: {
+    fontSize: 12,
+    color: '#475569',
+    fontStyle: 'italic',
+    lineHeight: 17,
+  },
+  alertWarningNote: {
+    fontSize: 11,
+    color: '#DC2626',
+    fontWeight: '600',
+    marginTop: 10,
+    marginBottom: 16,
+  },
+  alertButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  alertCancelBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  alertDeleteBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: '#DC2626',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  alertDeleteBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* ======================================================== */
+  /* BEAUTIFUL CUSTOM SUCCESS / CELEBRATION MODAL STYLES */
+  /* ======================================================== */
+  celebrationCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#002B5C',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  celebrationGlowRing: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#CCFBF1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  celebrationIconBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.brandTeal,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.brandTeal,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  celebrationTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  celebrationMessage: {
+    fontSize: 13,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 19,
+    paddingHorizontal: 8,
+  },
+  celebrationScriptureBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 14,
+    marginBottom: 18,
+    width: '100%',
+  },
+  celebrationScriptureText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#0F766E',
+    fontStyle: 'italic',
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  celebrationConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: COLORS.brandNavy,
+    shadowColor: COLORS.brandNavy,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  celebrationConfirmBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
