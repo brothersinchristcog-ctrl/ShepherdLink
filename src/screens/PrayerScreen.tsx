@@ -150,6 +150,7 @@ export const PrayerScreen: React.FC = () => {
     addPrayer,
     deletePrayer,
     addPrayerComment,
+    deletePrayerComment,
     currentUser,
     loggedPastor,
   } = useApp();
@@ -280,6 +281,32 @@ export const PrayerScreen: React.FC = () => {
     Alert.alert('Category Added', `"${trimmed}" is now available in categories.`);
   };
 
+  const handleDeleteCategory = (catKey: string) => {
+    const config = getTagConfig(catKey);
+    Alert.alert(
+      'Delete Category',
+      `Are you sure you want to delete the category "${config.label}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            setUserCategories((prev) =>
+              prev.filter((c) => c.toUpperCase() !== catKey.toUpperCase())
+            );
+            if (tagFilter.toUpperCase() === catKey.toUpperCase()) {
+              setTagFilter('ALL');
+            }
+            if (selectedTag.toUpperCase() === catKey.toUpperCase()) {
+              setSelectedTag('HEALTH');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handlePostPrayer = () => {
     if (!requestText.trim()) {
       Alert.alert('Empty Request', 'Please describe your prayer need before posting.');
@@ -302,13 +329,37 @@ export const PrayerScreen: React.FC = () => {
   const handleDelete = (prayer: PrayerRequest) => {
     Alert.alert(
       'Delete Prayer Request',
-      'Are you sure you want to remove this prayer request?',
+      `Are you sure you want to remove this prayer request from ${prayer.pastorName}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: () => deletePrayer(prayer.id),
+        },
+      ]
+    );
+  };
+
+  const handleDeleteComment = (prayerId: string, commentId: string) => {
+    Alert.alert(
+      'Delete Encouragement',
+      'Are you sure you want to remove this encouraging comment?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            deletePrayerComment(prayerId, commentId);
+            setActiveCommentPrayer((prev) => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                comments: (prev.comments || []).filter((c) => c.id !== commentId),
+              };
+            });
+          },
         },
       ]
     );
@@ -343,11 +394,6 @@ export const PrayerScreen: React.FC = () => {
         ],
       };
     });
-  };
-
-  const isMyPrayer = (item: PrayerRequest) => {
-    const myName = loggedPastor?.name || currentUser.name;
-    return !!(myName && item.pastorName.toLowerCase() === myName.toLowerCase());
   };
 
   return (
@@ -484,12 +530,20 @@ export const PrayerScreen: React.FC = () => {
           {allCategories.map((catKey) => {
             const isSelected = tagFilter.toUpperCase() === catKey.toUpperCase();
             const config = getTagConfig(catKey);
+            const isCustom = !['HEALTH', 'MINISTRY', 'FAMILY', 'CHURCH'].includes(
+              catKey.toUpperCase()
+            );
 
             return (
               <TouchableOpacity
                 key={catKey}
                 style={[styles.categoryTagChip, isSelected && styles.categoryTagChipActive]}
                 onPress={() => setTagFilter(catKey)}
+                onLongPress={() => {
+                  if (isCustom) {
+                    handleDeleteCategory(catKey);
+                  }
+                }}
                 activeOpacity={0.75}
               >
                 <Ionicons
@@ -505,6 +559,23 @@ export const PrayerScreen: React.FC = () => {
                 >
                   {config.label}
                 </Text>
+
+                {isCustom && (
+                  <TouchableOpacity
+                    style={styles.categoryChipDeleteBtn}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDeleteCategory(catKey);
+                    }}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <Ionicons
+                      name="close-circle"
+                      size={13}
+                      color={isSelected ? '#0F172A' : '#94A3B8'}
+                    />
+                  </TouchableOpacity>
+                )}
               </TouchableOpacity>
             );
           })}
@@ -546,7 +617,6 @@ export const PrayerScreen: React.FC = () => {
           {filteredPrayers.map((item) => {
             const palette = getAvatarPalette(item.pastorName);
             const tagInfo = getTagConfig(item.tag);
-            const myPost = isMyPrayer(item);
             const commentsCount = item.comments?.length || 0;
 
             return (
@@ -591,15 +661,15 @@ export const PrayerScreen: React.FC = () => {
                       </Text>
                     </View>
 
-                    {myPost && (
-                      <TouchableOpacity
-                        style={styles.trashBtn}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        onPress={() => handleDelete(item)}
-                      >
-                        <Ionicons name="trash-outline" size={14} color="#EF4444" />
-                      </TouchableOpacity>
-                    )}
+                    {/* Delete Option on Prayer Card */}
+                    <TouchableOpacity
+                      style={styles.trashBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={() => handleDelete(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={14} color="#EF4444" />
+                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -934,9 +1004,9 @@ export const PrayerScreen: React.FC = () => {
                     <Ionicons name="pricetags" size={18} color={COLORS.brandTeal} />
                   </View>
                   <View>
-                    <Text style={styles.categoryModalTitle}>Add New Category</Text>
+                    <Text style={styles.categoryModalTitle}>Categories</Text>
                     <Text style={styles.categoryModalSub}>
-                      Create a custom category for prayer needs
+                      Add or manage prayer request categories
                     </Text>
                   </View>
                 </View>
@@ -1013,6 +1083,41 @@ export const PrayerScreen: React.FC = () => {
                   <Text style={styles.categoryConfirmBtnText}>Add Category</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Manage Custom Categories Section */}
+              {userCategories.filter(
+                (c) => !['HEALTH', 'MINISTRY', 'FAMILY', 'CHURCH'].includes(c.toUpperCase())
+              ).length > 0 && (
+                <View style={styles.manageCategorySection}>
+                  <Text style={styles.manageCategoryHeader}>Custom Categories</Text>
+                  <View style={styles.customCategoryList}>
+                    {userCategories
+                      .filter(
+                        (c) =>
+                          !['HEALTH', 'MINISTRY', 'FAMILY', 'CHURCH'].includes(c.toUpperCase())
+                      )
+                      .map((cKey) => {
+                        const conf = getTagConfig(cKey);
+                        return (
+                          <View key={cKey} style={styles.customCategoryRow}>
+                            <View style={styles.customCategoryRowLeft}>
+                              <Ionicons name={conf.icon} size={14} color={conf.text} />
+                              <Text style={styles.customCategoryRowLabel}>{conf.label}</Text>
+                            </View>
+                            <TouchableOpacity
+                              style={styles.deleteCategoryBtn}
+                              onPress={() => handleDeleteCategory(cKey)}
+                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                            >
+                              <Ionicons name="trash-outline" size={13} color="#EF4444" />
+                              <Text style={styles.deleteCategoryBtnText}>Delete</Text>
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      })}
+                  </View>
+                </View>
+              )}
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -1082,7 +1187,19 @@ export const PrayerScreen: React.FC = () => {
                         <View style={styles.commentBubble}>
                           <View style={styles.commentAuthorRow}>
                             <Text style={styles.commentAuthorName}>{c.authorName}</Text>
-                            <Text style={styles.commentTimeAgo}>{c.timeAgo}</Text>
+                            <View style={styles.commentRightMeta}>
+                              <Text style={styles.commentTimeAgo}>{c.timeAgo}</Text>
+                              <TouchableOpacity
+                                style={styles.commentTrashBtn}
+                                onPress={() =>
+                                  activeCommentPrayer &&
+                                  handleDeleteComment(activeCommentPrayer.id, c.id)
+                                }
+                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                              >
+                                <Ionicons name="trash-outline" size={12} color="#EF4444" />
+                              </TouchableOpacity>
+                            </View>
                           </View>
                           <Text style={styles.commentContentText}>{c.text}</Text>
                         </View>
@@ -1289,6 +1406,9 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontWeight: '700',
   },
+  categoryChipDeleteBtn: {
+    marginLeft: 3,
+  },
   addCategoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1446,7 +1566,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   trashBtn: {
-    padding: 4,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   microBadgesRow: {
     flexDirection: 'row',
@@ -1929,6 +2056,64 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
+  /* Manage Custom Categories */
+  manageCategorySection: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 10,
+    gap: 6,
+  },
+  manageCategoryHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 4,
+  },
+  customCategoryList: {
+    gap: 6,
+    maxHeight: 120,
+  },
+  customCategoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  customCategoryRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  customCategoryRowLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  deleteCategoryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  deleteCategoryBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+
   /* Comments Modal Styles */
   commentPrayerSnippet: {
     backgroundColor: '#F8FAFC',
@@ -1980,9 +2165,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
   },
+  commentRightMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   commentTimeAgo: {
     fontSize: 10,
     color: '#94A3B8',
+  },
+  commentTrashBtn: {
+    padding: 2,
   },
   commentContentText: {
     fontSize: 13,

@@ -155,6 +155,7 @@ interface AppContextType {
   ) => void;
   deletePrayer: (prayerId: string) => void;
   addPrayerComment: (prayerId: string, commentText: string) => void;
+  deletePrayerComment: (prayerId: string, commentId: string) => void;
 
   // Attendance
   attendanceMap: Record<string, boolean>;
@@ -1037,6 +1038,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const deletePrayerComment = (prayerId: string, commentId: string) => {
+    setPrayers((prev) =>
+      prev.map((p) => {
+        if (p.id === prayerId) {
+          const updated: PrayerRequest = {
+            ...p,
+            comments: (p.comments || []).filter((c) => c.id !== commentId),
+          };
+          FirestoreService.savePrayer(updated).catch(console.warn);
+          return updated;
+        }
+        return p;
+      })
+    );
+  };
+
   const toggleAttendance = (pastorId: string) => {
     setAttendanceMap((prev) => ({
       ...prev,
@@ -1108,6 +1125,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addPrayer,
         deletePrayer,
         addPrayerComment,
+        deletePrayerComment,
         attendanceMap,
         toggleAttendance,
         markAllAttendance,
