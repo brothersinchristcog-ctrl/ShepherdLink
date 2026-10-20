@@ -100,12 +100,42 @@ export const HomeScreen: React.FC = () => {
       {/* 4-Item Quick Action Grid */}
       <View style={styles.grid}>
         <TouchableOpacity
-          style={styles.gridCard}
-          onPress={() => navigateTo('directory')}
+          style={[
+            styles.gridCard,
+            !currentUser.permissions?.canManageMembers && styles.gridCardDisabled,
+          ]}
+          onPress={() => {
+            if (currentUser.permissions?.canManageMembers) {
+              navigateTo('directory');
+            } else {
+              Alert.alert(
+                'Directory Access Disabled',
+                'Directory and member access is currently turned off for your account. You can enable "Manage Members" under Role & Access Privileges in your Profile settings.'
+              );
+            }
+          }}
           activeOpacity={0.7}
         >
-          <Feather name="users" size={24} color={COLORS.accent} />
-          <Text style={styles.gridLabel}>Directory</Text>
+          <View style={styles.gridIconWrap}>
+            <Feather
+              name="users"
+              size={24}
+              color={currentUser.permissions?.canManageMembers ? COLORS.accent : '#94A3B8'}
+            />
+            {!currentUser.permissions?.canManageMembers && (
+              <View style={styles.gridLockBadge}>
+                <Ionicons name="lock-closed" size={9} color="#FFFFFF" />
+              </View>
+            )}
+          </View>
+          <Text
+            style={[
+              styles.gridLabel,
+              !currentUser.permissions?.canManageMembers && styles.gridLabelDisabled,
+            ]}
+          >
+            Directory
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -341,10 +371,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.soft,
   },
+  gridCardDisabled: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    opacity: 0.85,
+  },
+  gridIconWrap: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridLockBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    backgroundColor: '#DC2626',
+    borderRadius: 7,
+    width: 14,
+    height: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
   gridLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: COLORS.ink,
+  },
+  gridLabelDisabled: {
+    color: '#94A3B8',
   },
   sectionHeader: {
     flexDirection: 'row',

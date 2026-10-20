@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
-import { AssociationEvent, isPastorAdmin } from '../types';
+import { AssociationEvent } from '../types';
 import { COLORS } from '../constants/theme';
 import { EventQRCodeModal } from '../components/EventQRCodeModal';
 import { EventQRScannerModal } from '../components/EventQRScannerModal';
@@ -84,16 +84,14 @@ export const EventsScreen: React.FC = () => {
   const [scannerEvent, setScannerEvent] = useState<AssociationEvent | null>(null);
   const [qrCodeEvent, setQrCodeEvent] = useState<AssociationEvent | null>(null);
 
-  // Check if current user is an association administrator
+  // Check if current user is authorized to create events
   const isAssociationAdmin = Boolean(
-    currentUser.isAdmin ||
-      currentUser.permissions?.canCreateEvents ||
-      (currentUser.role && isPastorAdmin(currentUser.role))
+    currentUser.permissions?.canCreateEvents
   );
 
-  // Can user track attendance (admins or authorized leaders)
+  // Can user track attendance (authorized leaders)
   const canTrackAttendance = Boolean(
-    isAssociationAdmin || currentUser.permissions?.canTrackAttendance
+    currentUser.permissions?.canTrackAttendance
   );
 
   // Filter counts

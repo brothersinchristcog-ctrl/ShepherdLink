@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
-import { EventScope, AssociationEvent, isPastorAdmin } from '../types';
+import { EventScope, AssociationEvent } from '../types';
 import { COLORS } from '../constants/theme';
 import { EventQRCodeModal } from '../components/EventQRCodeModal';
 
@@ -213,11 +213,9 @@ export const CreateEventScreen: React.FC = () => {
   const [tempMinute, setTempMinute] = useState('00');
   const [tempMeridiem, setTempMeridiem] = useState<'AM' | 'PM'>('AM');
 
-  // Check if current user is an association administrator
+  // Check if current user is authorized to create events
   const isAssociationAdmin = Boolean(
-    currentUser.isAdmin ||
-      currentUser.permissions?.canCreateEvents ||
-      (currentUser.role && isPastorAdmin(currentUser.role))
+    currentUser.permissions?.canCreateEvents
   );
 
   if (!isAssociationAdmin) {

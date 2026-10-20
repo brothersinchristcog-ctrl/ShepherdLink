@@ -646,7 +646,7 @@ export const ProfileScreen: React.FC = () => {
               </View>
               <Text style={styles.authorityTileTitle}>Directory Access</Text>
               <Text style={styles.authorityTileSub}>
-                {effectivePermissions.canManageMembers ? 'Manage pastors' : 'Directory view'}
+                {effectivePermissions.canManageMembers ? 'Manage pastors' : 'Access disabled'}
               </Text>
             </View>
 

@@ -60,6 +60,7 @@ export const DirectoryScreen: React.FC = () => {
     currentAssociation,
     addMemberByAdmin,
     updatePastorRoleAndPermissions,
+    navigateTo,
   } = useApp();
 
   const officersCount = pastors.filter((p) => isPastorAdmin(p.role)).length;
@@ -197,6 +198,30 @@ export const DirectoryScreen: React.FC = () => {
     }
   };
 
+  if (!currentUser.permissions?.canManageMembers) {
+    return (
+      <View style={styles.restrictedContainer}>
+        <View style={styles.restrictedCard}>
+          <View style={styles.restrictedIconWrap}>
+            <Ionicons name="lock-closed" size={36} color="#DC2626" />
+          </View>
+          <Text style={styles.restrictedTitle}>Directory Access Disabled</Text>
+          <Text style={styles.restrictedDesc}>
+            Directory and member access permissions are currently turned off for your account. You can enable &quot;Manage Members&quot; under Role &amp; Access Privileges in your Profile settings.
+          </Text>
+          <TouchableOpacity
+            style={styles.restrictedBtn}
+            onPress={() => navigateTo('home')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="home-outline" size={16} color="#FFFFFF" />
+            <Text style={styles.restrictedBtnText}>Return to Home</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -213,7 +238,7 @@ export const DirectoryScreen: React.FC = () => {
             </Text>
           </View>
 
-          {currentUser.isAdmin && (
+          {currentUser.permissions?.canManageMembers && (
             <TouchableOpacity
               style={styles.addPastorBtn}
               activeOpacity={0.85}
@@ -365,7 +390,7 @@ export const DirectoryScreen: React.FC = () => {
                   ) : null}
 
                   {/* Admin Manage Button */}
-                  {currentUser.isAdmin && (
+                  {currentUser.permissions?.canAssignRoles && (
                     <TouchableOpacity
                       style={styles.cardManageBtn}
                       onPress={(e) => {
@@ -1572,5 +1597,72 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.muted,
     marginTop: 1,
+  },
+  restrictedContainer: {
+    flex: 1,
+    backgroundColor: COLORS.ground,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  restrictedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 380,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  restrictedIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  restrictedTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.ink,
+    textAlign: 'center',
+    marginBottom: 10,
+    letterSpacing: -0.2,
+  },
+  restrictedDesc: {
+    fontSize: 13,
+    color: COLORS.muted,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  restrictedBtn: {
+    backgroundColor: COLORS.brandNavy,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    shadowColor: COLORS.brandNavy,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  restrictedBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

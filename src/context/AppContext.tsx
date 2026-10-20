@@ -893,6 +893,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isLoggedUser) {
       setLoggedPastor(updatedTarget);
       persistUserSession(updatedTarget, currentAssociation);
+      if (currentScreen === 'directory' && !finalPermissions.canManageMembers) {
+        setCurrentScreen('profile');
+      }
     }
 
     // 4. Save to Firestore remote database

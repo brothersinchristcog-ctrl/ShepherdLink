@@ -50,13 +50,21 @@ const TABS: TabItem[] = [
 ];
 
 export const TabBar: React.FC = () => {
-  const { currentScreen, activeTab, navigateTo } = useApp();
+  const { currentScreen, activeTab, navigateTo, currentUser } = useApp();
   const insets = useSafeAreaInsets();
 
   // Hide tabbar on login screen matching the prototype
   if (currentScreen === 'login') {
     return null;
   }
+
+  // Filter tabs according to user access permissions (e.g. Directory hidden when canManageMembers is false)
+  const visibleTabs = TABS.filter((tab) => {
+    if (tab.id === 'directory') {
+      return Boolean(currentUser?.permissions?.canManageMembers);
+    }
+    return true;
+  });
 
   const handleTabPress = (tabId: TabName) => {
     if (tabId === 'profile') {
@@ -73,7 +81,7 @@ export const TabBar: React.FC = () => {
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>
-      {TABS.map((tab) => {
+      {visibleTabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
           <TouchableOpacity
