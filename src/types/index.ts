@@ -12,13 +12,21 @@ export type ScreenName =
 
 export type TabName = 'home' | 'directory' | 'events' | 'prayer' | 'profile';
 
-export type AdminRole = 'PRESIDENT' | 'SECRETARY' | 'TREASURER';
-export type PastorRole = AdminRole | 'MEMBER';
+export type AdminRole = 'PRESIDENT' | 'SECRETARY' | 'TREASURER' | 'VICE PRESIDENT';
+export type PastorRole = string;
 
-export const ADMIN_ROLES: PastorRole[] = ['PRESIDENT', 'SECRETARY', 'TREASURER'];
+export const DEFAULT_ADMIN_ROLES: string[] = [
+  'PRESIDENT',
+  'VICE PRESIDENT',
+  'SECRETARY',
+  'TREASURER',
+];
+export const ADMIN_ROLES: string[] = DEFAULT_ADMIN_ROLES;
 
-export const isPastorAdmin = (role: PastorRole): boolean => {
-  return ADMIN_ROLES.includes(role);
+export const isPastorAdmin = (role: PastorRole, customIsAdmin?: boolean): boolean => {
+  if (customIsAdmin !== undefined) return Boolean(customIsAdmin);
+  const clean = (role || '').trim().toUpperCase();
+  return DEFAULT_ADMIN_ROLES.includes(clean);
 };
 
 export interface PastorPermissions {
@@ -30,9 +38,14 @@ export interface PastorPermissions {
   canBroadcastNotices: boolean;
 }
 
-export const getDefaultPermissionsForRole = (role: PastorRole): PastorPermissions => {
-  switch (role) {
+export const getDefaultPermissionsForRole = (
+  role: PastorRole,
+  isAdmin?: boolean
+): PastorPermissions => {
+  const clean = (role || '').trim().toUpperCase();
+  switch (clean) {
     case 'PRESIDENT':
+    case 'VICE PRESIDENT':
       return {
         canManageMembers: true,
         canAssignRoles: true,
@@ -61,6 +74,16 @@ export const getDefaultPermissionsForRole = (role: PastorRole): PastorPermission
       };
     case 'MEMBER':
     default:
+      if (isAdmin) {
+        return {
+          canManageMembers: true,
+          canAssignRoles: false,
+          canCreateEvents: true,
+          canTrackAttendance: true,
+          canManageDonations: false,
+          canBroadcastNotices: true,
+        };
+      }
       return {
         canManageMembers: false,
         canAssignRoles: false,

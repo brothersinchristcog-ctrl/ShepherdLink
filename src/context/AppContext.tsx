@@ -110,7 +110,8 @@ interface AppContextType {
   updatePastorRoleAndPermissions: (
     pastorId: string,
     role: PastorRole,
-    customPermissions?: Partial<PastorPermissions>
+    customPermissions?: Partial<PastorPermissions>,
+    customIsAdmin?: boolean
   ) => Promise<boolean>;
   updatePastorProfile: (
     pastorId: string,
@@ -128,7 +129,10 @@ interface AppContextType {
     gender?: 'Male' | 'Female' | 'Other' | 'Others' | string;
     dateOfBirth?: string;
     permissions?: Partial<PastorPermissions>;
+    isAdmin?: boolean;
   }) => Promise<Pastor>;
+  availableRoles: string[];
+  addCustomRole: (role: string) => void;
 
   // Language
   language: string;
@@ -261,6 +265,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Initial attendance
   const [attendanceMap, setAttendanceMap] = useState<Record<string, boolean>>({});
+
+  // Dynamic available roles (Standard + Association created custom roles)
+  const [availableRoles, setAvailableRoles] = useState<string[]>([
+    'PRESIDENT',
+    'VICE PRESIDENT',
+    'SECRETARY',
+    'TREASURER',
+    'MEMBER',
+  ]);
+
+  const addCustomRole = (role: string) => {
+    const clean = (role || '').trim().toUpperCase();
+    if (!clean) return;
+    setAvailableRoles((prev) => {
+      if (prev.includes(clean)) return prev;
+      return [...prev, clean];
+    });
+  };
 
   // Restore persistent login session & load dataset from Firestore
   useEffect(() => {
@@ -800,15 +822,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updatePastorRoleAndPermissions = async (
     pastorId: string,
     role: PastorRole,
-    customPermissions?: Partial<PastorPermissions>
+    customPermissions?: Partial<PastorPermissions>,
+    customIsAdmin?: boolean
   ): Promise<boolean> => {
-    // Administrative rights are strictly restricted to only: PRESIDENT, SECRETARY, TREASURER
-    const adminStatus = isPastorAdmin(role);
-    const basePermissions = getDefaultPermissionsForRole(role);
+    const adminStatus = customIsAdmin !== undefined ? customIsAdmin : isPastorAdmin(role);
+    const basePermissions = getDefaultPermissionsForRole(role, adminStatus);
     const finalPermissions: PastorPermissions = {
       ...basePermissions,
       ...(customPermissions || {}),
     };
+
+    addCustomRole(role);
 
     // Find target pastor synchronously across allPastors, loggedPastor, selectedPastor
     let target = allPastors.find((p) => p.id === pastorId);
@@ -1007,6 +1031,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     gender?: 'Male' | 'Female' | 'Other' | 'Others' | string;
     dateOfBirth?: string;
     permissions?: Partial<PastorPermissions>;
+    isAdmin?: boolean;
   }): Promise<Pastor> => {
     const cleanPhone = data.phone.replace(/\D/g, '').slice(-10);
     const formattedName =
@@ -1014,13 +1039,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? data.name
         : `Pastor ${data.name}`;
 
-    // Admin rights are restricted strictly to PRESIDENT, SECRETARY, TREASURER
-    const adminStatus = isPastorAdmin(data.role);
-    const basePermissions = getDefaultPermissionsForRole(data.role);
+    const adminStatus = data.isAdmin !== undefined ? data.isAdmin : isPastorAdmin(data.role);
+    const basePermissions = getDefaultPermissionsForRole(data.role, adminStatus);
     const finalPermissions: PastorPermissions = {
       ...basePermissions,
       ...(data.permissions || {}),
     };
+
+    addCustomRole(data.role);
 
     const newPastor: Pastor = {
       id: `p-${Date.now()}`,
@@ -1270,6 +1296,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updatePastorRoleAndPermissions,
         updatePastorProfile,
         addMemberByAdmin,
+        availableRoles,
+        addCustomRole,
         language,
         setLanguage,
         pastors: activePastors,

@@ -72,6 +72,8 @@ export const ProfileScreen: React.FC = () => {
     updatePastorRoleAndPermissions,
     updatePastorProfile,
     currentAssociation,
+    availableRoles,
+    addCustomRole,
   } = useApp();
 
   const isMyProfile = currentScreen === 'profile';
@@ -186,14 +188,29 @@ export const ProfileScreen: React.FC = () => {
 
   // Admin Manage Role state
   const [targetRole, setTargetRole] = useState<PastorRole>(displayPastor?.role || 'MEMBER');
+  const [targetIsAdmin, setTargetIsAdmin] = useState(
+    displayPastor?.isAdmin !== undefined
+      ? Boolean(displayPastor.isAdmin)
+      : isPastorAdmin(displayPastor?.role || 'MEMBER')
+  );
+  const [isCustomRole, setIsCustomRole] = useState(false);
+  const [customRoleText, setCustomRoleText] = useState('');
   const [targetPermissions, setTargetPermissions] = useState<PastorPermissions>(
-    displayPastor?.permissions || getDefaultPermissionsForRole(displayPastor?.role || 'MEMBER')
+    displayPastor?.permissions ||
+      getDefaultPermissionsForRole(
+        displayPastor?.role || 'MEMBER',
+        displayPastor?.isAdmin !== undefined ? Boolean(displayPastor.isAdmin) : undefined
+      )
   );
   const [isSubmittingRole, setIsSubmittingRole] = useState(false);
 
-  const pastorIsAdmin = isPastorAdmin(displayPastor?.role || 'MEMBER');
+  const pastorIsAdmin =
+    displayPastor?.isAdmin !== undefined
+      ? Boolean(displayPastor.isAdmin)
+      : isPastorAdmin(displayPastor?.role || 'MEMBER');
   const effectivePermissions =
-    displayPastor?.permissions || getDefaultPermissionsForRole(displayPastor?.role || 'MEMBER');
+    displayPastor?.permissions ||
+    getDefaultPermissionsForRole(displayPastor?.role || 'MEMBER', pastorIsAdmin);
 
   // Contact actions
   const handleCall = () => {
@@ -386,26 +403,54 @@ export const ProfileScreen: React.FC = () => {
 
   // Open Admin Manage Modal
   const openManageModal = () => {
-    setTargetRole(displayPastor.role);
+    const role = displayPastor.role || 'MEMBER';
+    const admin =
+      displayPastor.isAdmin !== undefined
+        ? Boolean(displayPastor.isAdmin)
+        : isPastorAdmin(role);
+    setTargetRole(role);
+    setTargetIsAdmin(admin);
+    const standardRoles = ['PRESIDENT', 'VICE PRESIDENT', 'SECRETARY', 'TREASURER', 'MEMBER'];
+    const isCustom = !standardRoles.includes((role || '').toUpperCase());
+    setIsCustomRole(isCustom);
+    setCustomRoleText(isCustom ? role : '');
     setTargetPermissions(
-      displayPastor.permissions || getDefaultPermissionsForRole(displayPastor.role)
+      displayPastor.permissions || getDefaultPermissionsForRole(role, admin)
     );
     setShowManageModal(true);
   };
 
   const handleRoleChange = (role: PastorRole) => {
+    setIsCustomRole(false);
     setTargetRole(role);
-    setTargetPermissions(getDefaultPermissionsForRole(role));
+    const admin = isPastorAdmin(role);
+    setTargetIsAdmin(admin);
+    setTargetPermissions(getDefaultPermissionsForRole(role, admin));
+  };
+
+  const handleSelectCustomRole = () => {
+    setIsCustomRole(true);
+    setTargetIsAdmin(false);
+    setTargetPermissions(getDefaultPermissionsForRole(customRoleText || 'CUSTOM', false));
   };
 
   const handleSavePermissions = async () => {
     setIsSubmittingRole(true);
     try {
       const pastorIdToUpdate = displayPastor?.id || loggedPastor?.id || 'me';
+      const resolvedRole = isCustomRole
+        ? (customRoleText.trim() ? customRoleText.trim().toUpperCase() : 'MEMBER')
+        : targetRole;
+
+      if (isCustomRole && customRoleText.trim()) {
+        addCustomRole(resolvedRole);
+      }
+
       const success = await updatePastorRoleAndPermissions(
         pastorIdToUpdate,
-        targetRole,
-        targetPermissions
+        resolvedRole,
+        targetPermissions,
+        targetIsAdmin
       );
 
       if (success) {
@@ -1247,13 +1292,13 @@ export const ProfileScreen: React.FC = () => {
               {/* Role Selection */}
               <View style={styles.inputGroup}>
                 <View style={styles.sectionTitleRow}>
-                  <Text style={styles.label}>Select Role</Text>
+                  <Text style={styles.label}>Select or Create Role</Text>
                   <View style={styles.ruleBadge}>
-                    <Text style={styles.ruleBadgeText}>Admin Rights Rule</Text>
+                    <Text style={styles.ruleBadgeText}>President &amp; Admin Rights</Text>
                   </View>
                 </View>
                 <Text style={styles.ruleHelpText}>
-                  Administrative privileges are restricted strictly to President, Secretary, and Treasurer.
+                  Administrators have full authority to assign standard roles or create custom roles with tailored privileges.
                 </Text>
 
                 <View style={styles.rolesGrid}>
@@ -1261,7 +1306,7 @@ export const ProfileScreen: React.FC = () => {
                   <TouchableOpacity
                     style={[
                       styles.roleOptionCard,
-                      targetRole === 'PRESIDENT' && styles.roleOptionCardSelected,
+                      !isCustomRole && targetRole === 'PRESIDENT' && styles.roleOptionCardSelected,
                     ]}
                     onPress={() => handleRoleChange('PRESIDENT')}
                   >
@@ -1269,7 +1314,7 @@ export const ProfileScreen: React.FC = () => {
                       <Ionicons
                         name="ribbon"
                         size={16}
-                        color={targetRole === 'PRESIDENT' ? '#B45309' : COLORS.muted}
+                        color={!isCustomRole && targetRole === 'PRESIDENT' ? '#B45309' : COLORS.muted}
                       />
                       <View style={styles.adminPill}>
                         <Text style={styles.adminPillText}>ADMIN</Text>
@@ -1279,11 +1324,33 @@ export const ProfileScreen: React.FC = () => {
                     <Text style={styles.roleDesc}>Full administrative rights</Text>
                   </TouchableOpacity>
 
+                  {/* Vice President */}
+                  <TouchableOpacity
+                    style={[
+                      styles.roleOptionCard,
+                      !isCustomRole && targetRole === 'VICE PRESIDENT' && styles.roleOptionCardSelected,
+                    ]}
+                    onPress={() => handleRoleChange('VICE PRESIDENT')}
+                  >
+                    <View style={styles.roleCardTop}>
+                      <Ionicons
+                        name="shield"
+                        size={16}
+                        color={!isCustomRole && targetRole === 'VICE PRESIDENT' ? '#B45309' : COLORS.muted}
+                      />
+                      <View style={styles.adminPill}>
+                        <Text style={styles.adminPillText}>ADMIN</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.roleTitle}>Vice President</Text>
+                    <Text style={styles.roleDesc}>Executive administrative rights</Text>
+                  </TouchableOpacity>
+
                   {/* Secretary */}
                   <TouchableOpacity
                     style={[
                       styles.roleOptionCard,
-                      targetRole === 'SECRETARY' && styles.roleOptionCardSelected,
+                      !isCustomRole && targetRole === 'SECRETARY' && styles.roleOptionCardSelected,
                     ]}
                     onPress={() => handleRoleChange('SECRETARY')}
                   >
@@ -1291,21 +1358,21 @@ export const ProfileScreen: React.FC = () => {
                       <Ionicons
                         name="document-text"
                         size={16}
-                        color={targetRole === 'SECRETARY' ? '#B45309' : COLORS.muted}
+                        color={!isCustomRole && targetRole === 'SECRETARY' ? '#B45309' : COLORS.muted}
                       />
                       <View style={styles.adminPill}>
                         <Text style={styles.adminPillText}>ADMIN</Text>
                       </View>
                     </View>
                     <Text style={styles.roleTitle}>Secretary</Text>
-                    <Text style={styles.roleDesc}>Ops, members & notices</Text>
+                    <Text style={styles.roleDesc}>Ops, members &amp; notices</Text>
                   </TouchableOpacity>
 
                   {/* Treasurer */}
                   <TouchableOpacity
                     style={[
                       styles.roleOptionCard,
-                      targetRole === 'TREASURER' && styles.roleOptionCardSelected,
+                      !isCustomRole && targetRole === 'TREASURER' && styles.roleOptionCardSelected,
                     ]}
                     onPress={() => handleRoleChange('TREASURER')}
                   >
@@ -1313,21 +1380,21 @@ export const ProfileScreen: React.FC = () => {
                       <Ionicons
                         name="wallet"
                         size={16}
-                        color={targetRole === 'TREASURER' ? '#B45309' : COLORS.muted}
+                        color={!isCustomRole && targetRole === 'TREASURER' ? '#B45309' : COLORS.muted}
                       />
                       <View style={styles.adminPill}>
                         <Text style={styles.adminPillText}>ADMIN</Text>
                       </View>
                     </View>
                     <Text style={styles.roleTitle}>Treasurer</Text>
-                    <Text style={styles.roleDesc}>Finances & collections</Text>
+                    <Text style={styles.roleDesc}>Finances &amp; collections</Text>
                   </TouchableOpacity>
 
                   {/* Member */}
                   <TouchableOpacity
                     style={[
                       styles.roleOptionCard,
-                      targetRole === 'MEMBER' && styles.roleOptionCardSelected,
+                      !isCustomRole && targetRole === 'MEMBER' && styles.roleOptionCardSelected,
                     ]}
                     onPress={() => handleRoleChange('MEMBER')}
                   >
@@ -1335,7 +1402,7 @@ export const ProfileScreen: React.FC = () => {
                       <Ionicons
                         name="person"
                         size={16}
-                        color={targetRole === 'MEMBER' ? COLORS.brandNavy : COLORS.muted}
+                        color={!isCustomRole && targetRole === 'MEMBER' ? COLORS.brandNavy : COLORS.muted}
                       />
                       <View style={styles.memberPill}>
                         <Text style={styles.memberPillText}>STANDARD</Text>
@@ -1344,7 +1411,104 @@ export const ProfileScreen: React.FC = () => {
                     <Text style={styles.roleTitle}>Member</Text>
                     <Text style={styles.roleDesc}>Standard member access</Text>
                   </TouchableOpacity>
+
+                  {/* Association Created Custom Roles */}
+                  {availableRoles
+                    .filter(
+                      (r) =>
+                        !['PRESIDENT', 'VICE PRESIDENT', 'SECRETARY', 'TREASURER', 'MEMBER'].includes(
+                          (r || '').toUpperCase()
+                        )
+                    )
+                    .map((customR) => {
+                      const isSel = !isCustomRole && targetRole === customR;
+                      return (
+                        <TouchableOpacity
+                          key={customR}
+                          style={[
+                            styles.roleOptionCard,
+                            isSel && styles.roleOptionCardSelected,
+                          ]}
+                          onPress={() => handleRoleChange(customR)}
+                        >
+                          <View style={styles.roleCardTop}>
+                            <Ionicons
+                              name="star"
+                              size={16}
+                              color={isSel ? COLORS.brandTeal : COLORS.muted}
+                            />
+                            <View style={targetIsAdmin && isSel ? styles.adminPill : styles.memberPill}>
+                              <Text style={targetIsAdmin && isSel ? styles.adminPillText : styles.memberPillText}>
+                                {targetIsAdmin && isSel ? 'ADMIN' : 'CUSTOM'}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.roleTitle} numberOfLines={1}>
+                            {customR}
+                          </Text>
+                          <Text style={styles.roleDesc}>Custom Association Role</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+
+                  {/* + Create Custom Role Card */}
+                  <TouchableOpacity
+                    style={[
+                      styles.roleOptionCard,
+                      isCustomRole && styles.roleOptionCardSelected,
+                      { borderStyle: 'dashed' },
+                    ]}
+                    onPress={handleSelectCustomRole}
+                  >
+                    <View style={styles.roleCardTop}>
+                      <Ionicons
+                        name="add-circle"
+                        size={18}
+                        color={isCustomRole ? COLORS.brandTeal : COLORS.brandNavy}
+                      />
+                      <View style={[styles.memberPill, { backgroundColor: '#F0FDFA' }]}>
+                        <Text style={[styles.memberPillText, { color: COLORS.brandTeal }]}>NEW</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.roleTitle}>+ Custom Role</Text>
+                    <Text style={styles.roleDesc}>Create any custom role</Text>
+                  </TouchableOpacity>
                 </View>
+
+                {/* Custom Role Input Box & Admin Status Toggle */}
+                {isCustomRole && (
+                  <View style={styles.customRoleBox}>
+                    <Text style={styles.customRoleBoxTitle}>Enter Custom Role Name</Text>
+                    <TextInput
+                      style={styles.customRoleInput}
+                      placeholder="e.g. Youth Leader, Senior Advisor, Coordinator..."
+                      placeholderTextColor="#94A3B8"
+                      value={customRoleText}
+                      onChangeText={(t) => {
+                        setCustomRoleText(t);
+                        setTargetRole(t.toUpperCase());
+                      }}
+                      autoCapitalize="words"
+                    />
+
+                    <View style={styles.customAdminToggleRow}>
+                      <View style={{ flex: 1, paddingRight: 10 }}>
+                        <Text style={styles.customAdminToggleTitle}>Grant Administrative Privileges</Text>
+                        <Text style={styles.customAdminToggleSub}>
+                          Enable to grant administrative governance badge and rights
+                        </Text>
+                      </View>
+                      <Switch
+                        value={targetIsAdmin}
+                        onValueChange={(val) => {
+                          setTargetIsAdmin(val);
+                          setTargetPermissions(getDefaultPermissionsForRole(customRoleText || 'CUSTOM', val));
+                        }}
+                        trackColor={{ false: COLORS.ph, true: COLORS.brandTeal }}
+                      />
+                    </View>
+                  </View>
+                )}
               </View>
 
               {/* Permissions Toggles */}
@@ -2482,6 +2646,49 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     fontWeight: '700',
     color: '#4B5563',
+  },
+  customRoleBox: {
+    marginTop: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    padding: 12,
+    gap: 10,
+  },
+  customRoleBoxTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  customRoleInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: '#0F172A',
+    fontWeight: '600',
+  },
+  customAdminToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  customAdminToggleTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  customAdminToggleSub: {
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 1,
   },
   permissionsContainer: {
     backgroundColor: '#F8FAFC',

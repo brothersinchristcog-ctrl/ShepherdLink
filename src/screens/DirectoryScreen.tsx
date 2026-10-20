@@ -61,9 +61,11 @@ export const DirectoryScreen: React.FC = () => {
     addMemberByAdmin,
     updatePastorRoleAndPermissions,
     navigateTo,
+    availableRoles,
+    addCustomRole,
   } = useApp();
 
-  const officersCount = pastors.filter((p) => isPastorAdmin(p.role)).length;
+  const officersCount = pastors.filter((p) => isPastorAdmin(p.role, p.isAdmin)).length;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState<'all' | 'officers' | 'ministry'>('all');
@@ -80,12 +82,18 @@ export const DirectoryScreen: React.FC = () => {
   const [newVillage, setNewVillage] = useState(currentAssociation.mandal || '');
   const [newDenomination, setNewDenomination] = useState('Independent');
   const [newRole, setNewRole] = useState<PastorRole>('MEMBER');
+  const [newIsAdmin, setNewIsAdmin] = useState(false);
+  const [newIsCustomRole, setNewIsCustomRole] = useState(false);
+  const [newCustomRoleText, setNewCustomRoleText] = useState('');
   const [newPermissions, setNewPermissions] = useState<PastorPermissions>(
     getDefaultPermissionsForRole('MEMBER')
   );
 
   // Form state for editing member
   const [editRole, setEditRole] = useState<PastorRole>('MEMBER');
+  const [editIsAdmin, setEditIsAdmin] = useState(false);
+  const [editIsCustomRole, setEditIsCustomRole] = useState(false);
+  const [editCustomRoleText, setEditCustomRoleText] = useState('');
   const [editPermissions, setEditPermissions] = useState<PastorPermissions>(
     getDefaultPermissionsForRole('MEMBER')
   );
@@ -100,7 +108,7 @@ export const DirectoryScreen: React.FC = () => {
     if (!matchesSearch) return false;
 
     if (filterTab === 'officers') {
-      return isPastorAdmin(p.role);
+      return isPastorAdmin(p.role, p.isAdmin);
     }
 
     return true;
@@ -113,25 +121,54 @@ export const DirectoryScreen: React.FC = () => {
     setNewVillage(currentAssociation.mandal || '');
     setNewDenomination('Independent');
     setNewRole('MEMBER');
-    setNewPermissions(getDefaultPermissionsForRole('MEMBER'));
+    setNewIsAdmin(false);
+    setNewIsCustomRole(false);
+    setNewCustomRoleText('');
+    setNewPermissions(getDefaultPermissionsForRole('MEMBER', false));
     setShowAddModal(true);
   };
 
   const handleRoleChangeForAdd = (role: PastorRole) => {
+    setNewIsCustomRole(false);
     setNewRole(role);
-    setNewPermissions(getDefaultPermissionsForRole(role));
+    const admin = isPastorAdmin(role);
+    setNewIsAdmin(admin);
+    setNewPermissions(getDefaultPermissionsForRole(role, admin));
+  };
+
+  const handleSelectCustomRoleForAdd = () => {
+    setNewIsCustomRole(true);
+    setNewIsAdmin(false);
+    setNewPermissions(getDefaultPermissionsForRole(newCustomRoleText || 'CUSTOM', false));
   };
 
   const handleRoleChangeForEdit = (role: PastorRole) => {
+    setEditIsCustomRole(false);
     setEditRole(role);
-    setEditPermissions(getDefaultPermissionsForRole(role));
+    const admin = isPastorAdmin(role);
+    setEditIsAdmin(admin);
+    setEditPermissions(getDefaultPermissionsForRole(role, admin));
+  };
+
+  const handleSelectCustomRoleForEdit = () => {
+    setEditIsCustomRole(true);
+    setEditIsAdmin(false);
+    setEditPermissions(getDefaultPermissionsForRole(editCustomRoleText || 'CUSTOM', false));
   };
 
   const handleOpenEditModal = (pastor: Pastor) => {
     setEditingPastor(pastor);
-    setEditRole(pastor.role);
+    const role = pastor.role || 'MEMBER';
+    const admin = pastor.isAdmin !== undefined ? Boolean(pastor.isAdmin) : isPastorAdmin(role);
+    setEditRole(role);
+    setEditIsAdmin(admin);
+    const isStandard = ['PRESIDENT', 'VICE PRESIDENT', 'SECRETARY', 'TREASURER', 'MEMBER'].includes(
+      role.toUpperCase()
+    );
+    setEditIsCustomRole(!isStandard);
+    setEditCustomRoleText(!isStandard ? role : '');
     setEditPermissions(
-      pastor.permissions || getDefaultPermissionsForRole(pastor.role)
+      pastor.permissions || getDefaultPermissionsForRole(role, admin)
     );
   };
 
@@ -150,6 +187,14 @@ export const DirectoryScreen: React.FC = () => {
       return;
     }
 
+    const resolvedRole = newIsCustomRole
+      ? (newCustomRoleText.trim() ? newCustomRoleText.trim().toUpperCase() : 'MEMBER')
+      : newRole;
+
+    if (newIsCustomRole && newCustomRoleText.trim()) {
+      addCustomRole(resolvedRole);
+    }
+
     setIsSubmitting(true);
     try {
       await addMemberByAdmin({
@@ -158,14 +203,15 @@ export const DirectoryScreen: React.FC = () => {
         churchName: newChurch.trim(),
         village: newVillage.trim(),
         denomination: newDenomination,
-        role: newRole,
+        role: resolvedRole,
         permissions: newPermissions,
+        isAdmin: newIsAdmin,
       });
 
       setShowAddModal(false);
       Alert.alert(
         'Member Added',
-        `${newName} has been added to ${currentAssociation.name} as ${newRole}.`
+        `${newName} has been added to ${currentAssociation.name} as ${resolvedRole}.`
       );
     } catch {
       Alert.alert('Error', 'Could not add member. Please try again.');
@@ -177,12 +223,21 @@ export const DirectoryScreen: React.FC = () => {
   const handleSubmitEditMember = async () => {
     if (!editingPastor) return;
 
+    const resolvedRole = editIsCustomRole
+      ? (editCustomRoleText.trim() ? editCustomRoleText.trim().toUpperCase() : 'MEMBER')
+      : editRole;
+
+    if (editIsCustomRole && editCustomRoleText.trim()) {
+      addCustomRole(resolvedRole);
+    }
+
     setIsSubmitting(true);
     try {
       await updatePastorRoleAndPermissions(
         editingPastor.id,
-        editRole,
-        editPermissions
+        resolvedRole,
+        editPermissions,
+        editIsAdmin
       );
 
       const targetName = editingPastor.name;
@@ -539,11 +594,11 @@ export const DirectoryScreen: React.FC = () => {
                 <View style={styles.sectionTitleRow}>
                   <Text style={styles.label}>Assign Association Role *</Text>
                   <View style={styles.ruleBadge}>
-                    <Text style={styles.ruleBadgeText}>Administrative Rights Rule</Text>
+                    <Text style={styles.ruleBadgeText}>President &amp; Admin Rights</Text>
                   </View>
                 </View>
                 <Text style={styles.ruleHelpText}>
-                  Administrative rights are strictly restricted to President, Secretary, and Treasurer.
+                  Administrators have full rights to assign standard roles or create custom roles with tailored privileges.
                 </Text>
 
                 <View style={styles.rolesGrid}>
@@ -551,12 +606,12 @@ export const DirectoryScreen: React.FC = () => {
                   <TouchableOpacity
                     style={[
                       styles.roleOptionCard,
-                      newRole === 'PRESIDENT' && styles.roleOptionCardSelected,
+                      !newIsCustomRole && newRole === 'PRESIDENT' && styles.roleOptionCardSelected,
                     ]}
                     onPress={() => handleRoleChangeForAdd('PRESIDENT')}
                   >
                     <View style={styles.roleCardTop}>
-                      <Ionicons name="ribbon" size={16} color={newRole === 'PRESIDENT' ? '#B45309' : COLORS.muted} />
+                      <Ionicons name="ribbon" size={16} color={!newIsCustomRole && newRole === 'PRESIDENT' ? '#B45309' : COLORS.muted} />
                       <View style={styles.adminPill}>
                         <Text style={styles.adminPillText}>ADMIN</Text>
                       </View>
@@ -565,52 +620,70 @@ export const DirectoryScreen: React.FC = () => {
                     <Text style={styles.roleDesc}>Full association administrative rights</Text>
                   </TouchableOpacity>
 
+                  {/* Vice President */}
+                  <TouchableOpacity
+                    style={[
+                      styles.roleOptionCard,
+                      !newIsCustomRole && newRole === 'VICE PRESIDENT' && styles.roleOptionCardSelected,
+                    ]}
+                    onPress={() => handleRoleChangeForAdd('VICE PRESIDENT')}
+                  >
+                    <View style={styles.roleCardTop}>
+                      <Ionicons name="shield" size={16} color={!newIsCustomRole && newRole === 'VICE PRESIDENT' ? '#B45309' : COLORS.muted} />
+                      <View style={styles.adminPill}>
+                        <Text style={styles.adminPillText}>ADMIN</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.roleTitle}>Vice President</Text>
+                    <Text style={styles.roleDesc}>Executive administrative rights</Text>
+                  </TouchableOpacity>
+
                   {/* Secretary */}
                   <TouchableOpacity
                     style={[
                       styles.roleOptionCard,
-                      newRole === 'SECRETARY' && styles.roleOptionCardSelected,
+                      !newIsCustomRole && newRole === 'SECRETARY' && styles.roleOptionCardSelected,
                     ]}
                     onPress={() => handleRoleChangeForAdd('SECRETARY')}
                   >
                     <View style={styles.roleCardTop}>
-                      <Ionicons name="document-text" size={16} color={newRole === 'SECRETARY' ? '#B45309' : COLORS.muted} />
+                      <Ionicons name="document-text" size={16} color={!newIsCustomRole && newRole === 'SECRETARY' ? '#B45309' : COLORS.muted} />
                       <View style={styles.adminPill}>
                         <Text style={styles.adminPillText}>ADMIN</Text>
                       </View>
                     </View>
                     <Text style={styles.roleTitle}>Secretary</Text>
-                    <Text style={styles.roleDesc}>Member management, events & notices</Text>
+                    <Text style={styles.roleDesc}>Member management, events &amp; notices</Text>
                   </TouchableOpacity>
 
                   {/* Treasurer */}
                   <TouchableOpacity
                     style={[
                       styles.roleOptionCard,
-                      newRole === 'TREASURER' && styles.roleOptionCardSelected,
+                      !newIsCustomRole && newRole === 'TREASURER' && styles.roleOptionCardSelected,
                     ]}
                     onPress={() => handleRoleChangeForAdd('TREASURER')}
                   >
                     <View style={styles.roleCardTop}>
-                      <Ionicons name="wallet" size={16} color={newRole === 'TREASURER' ? '#B45309' : COLORS.muted} />
+                      <Ionicons name="wallet" size={16} color={!newIsCustomRole && newRole === 'TREASURER' ? '#B45309' : COLORS.muted} />
                       <View style={styles.adminPill}>
                         <Text style={styles.adminPillText}>ADMIN</Text>
                       </View>
                     </View>
                     <Text style={styles.roleTitle}>Treasurer</Text>
-                    <Text style={styles.roleDesc}>Financial records, donations & attendance</Text>
+                    <Text style={styles.roleDesc}>Financial records, donations &amp; attendance</Text>
                   </TouchableOpacity>
 
                   {/* Member */}
                   <TouchableOpacity
                     style={[
                       styles.roleOptionCard,
-                      newRole === 'MEMBER' && styles.roleOptionCardSelected,
+                      !newIsCustomRole && newRole === 'MEMBER' && styles.roleOptionCardSelected,
                     ]}
                     onPress={() => handleRoleChangeForAdd('MEMBER')}
                   >
                     <View style={styles.roleCardTop}>
-                      <Ionicons name="person" size={16} color={newRole === 'MEMBER' ? COLORS.brandNavy : COLORS.muted} />
+                      <Ionicons name="person" size={16} color={!newIsCustomRole && newRole === 'MEMBER' ? COLORS.brandNavy : COLORS.muted} />
                       <View style={styles.memberPill}>
                         <Text style={styles.memberPillText}>STANDARD</Text>
                       </View>
@@ -618,7 +691,104 @@ export const DirectoryScreen: React.FC = () => {
                     <Text style={styles.roleTitle}>Member</Text>
                     <Text style={styles.roleDesc}>Fellowship member with standard access</Text>
                   </TouchableOpacity>
+
+                  {/* Association Created Custom Roles */}
+                  {availableRoles
+                    .filter(
+                      (r) =>
+                        !['PRESIDENT', 'VICE PRESIDENT', 'SECRETARY', 'TREASURER', 'MEMBER'].includes(
+                          (r || '').toUpperCase()
+                        )
+                    )
+                    .map((customR) => {
+                      const isSel = !newIsCustomRole && newRole === customR;
+                      return (
+                        <TouchableOpacity
+                          key={customR}
+                          style={[
+                            styles.roleOptionCard,
+                            isSel && styles.roleOptionCardSelected,
+                          ]}
+                          onPress={() => handleRoleChangeForAdd(customR)}
+                        >
+                          <View style={styles.roleCardTop}>
+                            <Ionicons
+                              name="star"
+                              size={16}
+                              color={isSel ? COLORS.brandTeal : COLORS.muted}
+                            />
+                            <View style={newIsAdmin && isSel ? styles.adminPill : styles.memberPill}>
+                              <Text style={newIsAdmin && isSel ? styles.adminPillText : styles.memberPillText}>
+                                {newIsAdmin && isSel ? 'ADMIN' : 'CUSTOM'}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.roleTitle} numberOfLines={1}>
+                            {customR}
+                          </Text>
+                          <Text style={styles.roleDesc}>Custom Association Role</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+
+                  {/* + Custom Role */}
+                  <TouchableOpacity
+                    style={[
+                      styles.roleOptionCard,
+                      newIsCustomRole && styles.roleOptionCardSelected,
+                      { borderStyle: 'dashed' },
+                    ]}
+                    onPress={handleSelectCustomRoleForAdd}
+                  >
+                    <View style={styles.roleCardTop}>
+                      <Ionicons
+                        name="add-circle"
+                        size={18}
+                        color={newIsCustomRole ? COLORS.brandTeal : COLORS.brandNavy}
+                      />
+                      <View style={[styles.memberPill, { backgroundColor: '#F0FDFA' }]}>
+                        <Text style={[styles.memberPillText, { color: COLORS.brandTeal }]}>NEW</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.roleTitle}>+ Custom Role</Text>
+                    <Text style={styles.roleDesc}>Create any custom role</Text>
+                  </TouchableOpacity>
                 </View>
+
+                {/* Custom Role Input Box */}
+                {newIsCustomRole && (
+                  <View style={styles.customRoleBox}>
+                    <Text style={styles.customRoleBoxTitle}>Enter Custom Role Name</Text>
+                    <TextInput
+                      style={styles.customRoleInput}
+                      placeholder="e.g. Youth Leader, Senior Advisor, Coordinator..."
+                      placeholderTextColor="#94A3B8"
+                      value={newCustomRoleText}
+                      onChangeText={(t) => {
+                        setNewCustomRoleText(t);
+                        setNewRole(t.toUpperCase());
+                      }}
+                      autoCapitalize="words"
+                    />
+
+                    <View style={styles.customAdminToggleRow}>
+                      <View style={{ flex: 1, paddingRight: 10 }}>
+                        <Text style={styles.customAdminToggleTitle}>Grant Administrative Privileges</Text>
+                        <Text style={styles.customAdminToggleSub}>
+                          Enable to grant administrative governance badge and rights
+                        </Text>
+                      </View>
+                      <Switch
+                        value={newIsAdmin}
+                        onValueChange={(val) => {
+                          setNewIsAdmin(val);
+                          setNewPermissions(getDefaultPermissionsForRole(newCustomRoleText || 'CUSTOM', val));
+                        }}
+                        trackColor={{ false: COLORS.ph, true: COLORS.brandTeal }}
+                      />
+                    </View>
+                  </View>
+                )}
               </View>
 
               {/* PERMISSIONS TOGGLES */}
@@ -789,13 +959,13 @@ export const DirectoryScreen: React.FC = () => {
               {/* ROLE SELECTION */}
               <View style={styles.inputGroup}>
                 <View style={styles.sectionTitleRow}>
-                  <Text style={styles.label}>Select Role</Text>
+                  <Text style={styles.label}>Select or Create Role</Text>
                   <View style={styles.ruleBadge}>
-                    <Text style={styles.ruleBadgeText}>Administrative Rights Rule</Text>
+                    <Text style={styles.ruleBadgeText}>President &amp; Admin Rights</Text>
                   </View>
                 </View>
                 <Text style={styles.ruleHelpText}>
-                  Administrative rights are strictly restricted to President, Secretary, and Treasurer.
+                  Administrators have full rights to assign standard roles or create custom roles with tailored privileges.
                 </Text>
 
                 <View style={styles.rolesGrid}>
@@ -803,12 +973,12 @@ export const DirectoryScreen: React.FC = () => {
                   <TouchableOpacity
                     style={[
                       styles.roleOptionCard,
-                      editRole === 'PRESIDENT' && styles.roleOptionCardSelected,
+                      !editIsCustomRole && editRole === 'PRESIDENT' && styles.roleOptionCardSelected,
                     ]}
                     onPress={() => handleRoleChangeForEdit('PRESIDENT')}
                   >
                     <View style={styles.roleCardTop}>
-                      <Ionicons name="ribbon" size={16} color={editRole === 'PRESIDENT' ? '#B45309' : COLORS.muted} />
+                      <Ionicons name="ribbon" size={16} color={!editIsCustomRole && editRole === 'PRESIDENT' ? '#B45309' : COLORS.muted} />
                       <View style={styles.adminPill}>
                         <Text style={styles.adminPillText}>ADMIN</Text>
                       </View>
@@ -817,52 +987,70 @@ export const DirectoryScreen: React.FC = () => {
                     <Text style={styles.roleDesc}>Full administrative rights</Text>
                   </TouchableOpacity>
 
+                  {/* Vice President */}
+                  <TouchableOpacity
+                    style={[
+                      styles.roleOptionCard,
+                      !editIsCustomRole && editRole === 'VICE PRESIDENT' && styles.roleOptionCardSelected,
+                    ]}
+                    onPress={() => handleRoleChangeForEdit('VICE PRESIDENT')}
+                  >
+                    <View style={styles.roleCardTop}>
+                      <Ionicons name="shield" size={16} color={!editIsCustomRole && editRole === 'VICE PRESIDENT' ? '#B45309' : COLORS.muted} />
+                      <View style={styles.adminPill}>
+                        <Text style={styles.adminPillText}>ADMIN</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.roleTitle}>Vice President</Text>
+                    <Text style={styles.roleDesc}>Executive administrative rights</Text>
+                  </TouchableOpacity>
+
                   {/* Secretary */}
                   <TouchableOpacity
                     style={[
                       styles.roleOptionCard,
-                      editRole === 'SECRETARY' && styles.roleOptionCardSelected,
+                      !editIsCustomRole && editRole === 'SECRETARY' && styles.roleOptionCardSelected,
                     ]}
                     onPress={() => handleRoleChangeForEdit('SECRETARY')}
                   >
                     <View style={styles.roleCardTop}>
-                      <Ionicons name="document-text" size={16} color={editRole === 'SECRETARY' ? '#B45309' : COLORS.muted} />
+                      <Ionicons name="document-text" size={16} color={!editIsCustomRole && editRole === 'SECRETARY' ? '#B45309' : COLORS.muted} />
                       <View style={styles.adminPill}>
                         <Text style={styles.adminPillText}>ADMIN</Text>
                       </View>
                     </View>
                     <Text style={styles.roleTitle}>Secretary</Text>
-                    <Text style={styles.roleDesc}>Ops, members & notices</Text>
+                    <Text style={styles.roleDesc}>Ops, members &amp; notices</Text>
                   </TouchableOpacity>
 
                   {/* Treasurer */}
                   <TouchableOpacity
                     style={[
                       styles.roleOptionCard,
-                      editRole === 'TREASURER' && styles.roleOptionCardSelected,
+                      !editIsCustomRole && editRole === 'TREASURER' && styles.roleOptionCardSelected,
                     ]}
                     onPress={() => handleRoleChangeForEdit('TREASURER')}
                   >
                     <View style={styles.roleCardTop}>
-                      <Ionicons name="wallet" size={16} color={editRole === 'TREASURER' ? '#B45309' : COLORS.muted} />
+                      <Ionicons name="wallet" size={16} color={!editIsCustomRole && editRole === 'TREASURER' ? '#B45309' : COLORS.muted} />
                       <View style={styles.adminPill}>
                         <Text style={styles.adminPillText}>ADMIN</Text>
                       </View>
                     </View>
                     <Text style={styles.roleTitle}>Treasurer</Text>
-                    <Text style={styles.roleDesc}>Finances & collections</Text>
+                    <Text style={styles.roleDesc}>Finances &amp; collections</Text>
                   </TouchableOpacity>
 
                   {/* Member */}
                   <TouchableOpacity
                     style={[
                       styles.roleOptionCard,
-                      editRole === 'MEMBER' && styles.roleOptionCardSelected,
+                      !editIsCustomRole && editRole === 'MEMBER' && styles.roleOptionCardSelected,
                     ]}
                     onPress={() => handleRoleChangeForEdit('MEMBER')}
                   >
                     <View style={styles.roleCardTop}>
-                      <Ionicons name="person" size={16} color={editRole === 'MEMBER' ? COLORS.brandNavy : COLORS.muted} />
+                      <Ionicons name="person" size={16} color={!editIsCustomRole && editRole === 'MEMBER' ? COLORS.brandNavy : COLORS.muted} />
                       <View style={styles.memberPill}>
                         <Text style={styles.memberPillText}>STANDARD</Text>
                       </View>
@@ -870,7 +1058,104 @@ export const DirectoryScreen: React.FC = () => {
                     <Text style={styles.roleTitle}>Member</Text>
                     <Text style={styles.roleDesc}>Standard member access</Text>
                   </TouchableOpacity>
+
+                  {/* Association Created Custom Roles */}
+                  {availableRoles
+                    .filter(
+                      (r) =>
+                        !['PRESIDENT', 'VICE PRESIDENT', 'SECRETARY', 'TREASURER', 'MEMBER'].includes(
+                          (r || '').toUpperCase()
+                        )
+                    )
+                    .map((customR) => {
+                      const isSel = !editIsCustomRole && editRole === customR;
+                      return (
+                        <TouchableOpacity
+                          key={customR}
+                          style={[
+                            styles.roleOptionCard,
+                            isSel && styles.roleOptionCardSelected,
+                          ]}
+                          onPress={() => handleRoleChangeForEdit(customR)}
+                        >
+                          <View style={styles.roleCardTop}>
+                            <Ionicons
+                              name="star"
+                              size={16}
+                              color={isSel ? COLORS.brandTeal : COLORS.muted}
+                            />
+                            <View style={editIsAdmin && isSel ? styles.adminPill : styles.memberPill}>
+                              <Text style={editIsAdmin && isSel ? styles.adminPillText : styles.memberPillText}>
+                                {editIsAdmin && isSel ? 'ADMIN' : 'CUSTOM'}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.roleTitle} numberOfLines={1}>
+                            {customR}
+                          </Text>
+                          <Text style={styles.roleDesc}>Custom Association Role</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+
+                  {/* + Custom Role */}
+                  <TouchableOpacity
+                    style={[
+                      styles.roleOptionCard,
+                      editIsCustomRole && styles.roleOptionCardSelected,
+                      { borderStyle: 'dashed' },
+                    ]}
+                    onPress={handleSelectCustomRoleForEdit}
+                  >
+                    <View style={styles.roleCardTop}>
+                      <Ionicons
+                        name="add-circle"
+                        size={18}
+                        color={editIsCustomRole ? COLORS.brandTeal : COLORS.brandNavy}
+                      />
+                      <View style={[styles.memberPill, { backgroundColor: '#F0FDFA' }]}>
+                        <Text style={[styles.memberPillText, { color: COLORS.brandTeal }]}>NEW</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.roleTitle}>+ Custom Role</Text>
+                    <Text style={styles.roleDesc}>Create any custom role</Text>
+                  </TouchableOpacity>
                 </View>
+
+                {/* Custom Role Input Box */}
+                {editIsCustomRole && (
+                  <View style={styles.customRoleBox}>
+                    <Text style={styles.customRoleBoxTitle}>Enter Custom Role Name</Text>
+                    <TextInput
+                      style={styles.customRoleInput}
+                      placeholder="e.g. Youth Leader, Senior Advisor, Coordinator..."
+                      placeholderTextColor="#94A3B8"
+                      value={editCustomRoleText}
+                      onChangeText={(t) => {
+                        setEditCustomRoleText(t);
+                        setEditRole(t.toUpperCase());
+                      }}
+                      autoCapitalize="words"
+                    />
+
+                    <View style={styles.customAdminToggleRow}>
+                      <View style={{ flex: 1, paddingRight: 10 }}>
+                        <Text style={styles.customAdminToggleTitle}>Grant Administrative Privileges</Text>
+                        <Text style={styles.customAdminToggleSub}>
+                          Enable to grant administrative governance badge and rights
+                        </Text>
+                      </View>
+                      <Switch
+                        value={editIsAdmin}
+                        onValueChange={(val) => {
+                          setEditIsAdmin(val);
+                          setEditPermissions(getDefaultPermissionsForRole(editCustomRoleText || 'CUSTOM', val));
+                        }}
+                        trackColor={{ false: COLORS.ph, true: COLORS.brandTeal }}
+                      />
+                    </View>
+                  </View>
+                )}
               </View>
 
               {/* PERMISSIONS TOGGLES */}
@@ -1664,5 +1949,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  customRoleBox: {
+    marginTop: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    padding: 12,
+    gap: 10,
+  },
+  customRoleBoxTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  customRoleInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: '#0F172A',
+    fontWeight: '600',
+  },
+  customAdminToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  customAdminToggleTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  customAdminToggleSub: {
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 1,
   },
 });
