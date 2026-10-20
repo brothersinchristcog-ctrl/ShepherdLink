@@ -10,7 +10,6 @@ import {
   Switch,
   ActivityIndicator,
   Image,
-  Share,
   TextInput,
 } from 'react-native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -385,26 +384,6 @@ export const ProfileScreen: React.FC = () => {
     }
   };
 
-  // Share Pastor Profile / Card
-  const handleShareProfile = async () => {
-    try {
-      const message =
-        `🕊️ *ShepherdLink Verified Pastoral Credentials*\n\n` +
-        `👤 *${displayPastor.name}*\n` +
-        `🏛️ Church: ${displayPastor.churchName}\n` +
-        `📍 Location: ${displayPastor.village || displayPastor.mandal}, ${displayPastor.district}\n` +
-        `🏷️ Role: ${displayPastor.role}\n` +
-        `📜 Denomination: ${displayPastor.denomination || 'Independent'}\n` +
-        `📅 Ordained: ${displayPastor.ordainedYear || '2020'}\n` +
-        `📞 Phone: ${displayPastor.phone}\n` +
-        `🤝 Association: ${displayPastor.associationName || currentAssociation.name} (${displayPastor.associationCode || currentAssociation.code})\n\n` +
-        `Official clergy registry record verified on ShepherdLink.`;
-      await Share.share({ message });
-    } catch {
-      // ignore
-    }
-  };
-
   // Open Admin Manage Modal
   const openManageModal = () => {
     setTargetRole(displayPastor.role);
@@ -469,7 +448,7 @@ export const ProfileScreen: React.FC = () => {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Header Bar */}
+        {/* Top Header Bar - Clean and Minimal */}
         <View style={styles.topNavRow}>
           {!isMyProfile ? (
             <TouchableOpacity
@@ -480,30 +459,15 @@ export const ProfileScreen: React.FC = () => {
               <Feather name="chevron-left" size={20} color={COLORS.ink} />
             </TouchableOpacity>
           ) : (
-            <View style={styles.headerLeftSpacer} />
+            <View style={styles.headerSpacer} />
           )}
 
           <Text style={styles.topNavTitle}>
             {isMyProfile ? 'My Profile' : 'Pastor Profile'}
           </Text>
 
-          {isMyProfile ? (
-            <TouchableOpacity
-              style={styles.headerSignOutBtn}
-              activeOpacity={0.7}
-              onPress={() => setShowSignOutConfirm(true)}
-            >
-              <Feather name="log-out" size={16} color="#DC2626" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.circleIconBtn}
-              activeOpacity={0.7}
-              onPress={handleShareProfile}
-            >
-              <Feather name="share-2" size={16} color={COLORS.ink} />
-            </TouchableOpacity>
-          )}
+          {/* Symmetrical empty spacer so title stays perfectly centered */}
+          <View style={styles.headerSpacer} />
         </View>
 
         {/* Elegant Executive Profile Card */}
@@ -553,13 +517,16 @@ export const ProfileScreen: React.FC = () => {
             )}
           </View>
 
-          {/* Clean Church & Parish Subtitle */}
+          {/* Church Name & Location - Formatted clearly without cutting off */}
+          <Text style={styles.churchMainName} numberOfLines={2}>
+            {displayPastor.churchName}
+          </Text>
           <View style={styles.churchLocationRow}>
-            <Ionicons name="location-sharp" size={14} color={COLORS.brandTeal} />
+            <Ionicons name="location-sharp" size={13} color={COLORS.brandTeal} />
             <Text style={styles.churchLocationText} numberOfLines={1}>
-              {[displayPastor.churchName, displayPastor.village || displayPastor.mandal, displayPastor.district]
+              {[displayPastor.village, displayPastor.mandal, displayPastor.district]
                 .filter(Boolean)
-                .join(' • ')}
+                .join(', ') || displayPastor.state || 'Andhra Pradesh'}
             </Text>
           </View>
 
@@ -576,16 +543,16 @@ export const ProfileScreen: React.FC = () => {
             </Text>
           </View>
 
-          {/* Two Balanced Hero Action Buttons (Edit Profile & Digital ID) */}
+          {/* Two Perfectly Balanced Action Buttons: Edit Profile & Digital ID Pass */}
           {isMyProfile ? (
             <View style={styles.heroActionsRow}>
               <TouchableOpacity
-                style={styles.heroPrimaryBtn}
+                style={styles.heroEditBtn}
                 onPress={openEditModal}
                 activeOpacity={0.8}
               >
-                <Feather name="edit-3" size={16} color="#FFFFFF" />
-                <Text style={styles.heroPrimaryBtnText}>Edit Profile</Text>
+                <Feather name="edit-3" size={16} color={COLORS.brandNavy} />
+                <Text style={styles.heroEditBtnText}>Edit Profile</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -595,14 +562,6 @@ export const ProfileScreen: React.FC = () => {
               >
                 <Ionicons name="qr-code-outline" size={17} color="#92400E" />
                 <Text style={styles.heroGoldBtnText}>Digital ID Pass</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.heroShareMiniBtn}
-                onPress={handleShareProfile}
-                activeOpacity={0.7}
-              >
-                <Feather name="share-2" size={16} color={COLORS.ink} />
               </TouchableOpacity>
             </View>
           ) : (
@@ -635,7 +594,7 @@ export const ProfileScreen: React.FC = () => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.heroShareMiniBtn}
+                style={styles.heroIdPassMiniBtn}
                 onPress={() => setShowDigitalIdModal(true)}
                 activeOpacity={0.7}
               >
@@ -839,7 +798,7 @@ export const ProfileScreen: React.FC = () => {
           </Text>
         </View>
 
-        {/* Bottom Sign Out Button for My Profile */}
+        {/* The ONLY Sign Out Button on the Screen */}
         {isMyProfile && (
           <TouchableOpacity
             style={styles.bottomSignOutBtn}
@@ -1234,23 +1193,15 @@ export const ProfileScreen: React.FC = () => {
                 </View>
               </View>
 
-              {/* Action Buttons Below ID Card */}
+              {/* Single Full-Width Action Button Below ID Card */}
               <View style={styles.idModalActions}>
                 <TouchableOpacity
-                  style={styles.idShareBtn}
-                  onPress={handleShareProfile}
-                  activeOpacity={0.8}
-                >
-                  <Feather name="share-2" size={15} color="#FFFFFF" />
-                  <Text style={styles.idShareBtnText}>Share Clergy Pass</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.idDoneBtn}
+                  style={styles.idDoneFullBtn}
                   onPress={() => setShowDigitalIdModal(false)}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.idDoneBtnText}>Close</Text>
+                  <Ionicons name="checkmark-sharp" size={16} color="#FFFFFF" />
+                  <Text style={styles.idDoneFullBtnText}>Close Identity Pass</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -1613,7 +1564,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 4,
   },
-  headerLeftSpacer: {
+  headerSpacer: {
     width: 38,
   },
   topNavTitle: {
@@ -1631,16 +1582,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-  },
-  headerSignOutBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FEE2E2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
   },
 
   /* Executive Hero Card */
@@ -1719,6 +1660,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: -0.2,
   },
+  churchMainName: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#334155',
+    textAlign: 'center',
+    marginTop: 4,
+    paddingHorizontal: 12,
+    lineHeight: 18,
+  },
   churchLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1727,7 +1677,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   churchLocationText: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#64748B',
     fontWeight: '500',
     textAlign: 'center',
@@ -1750,54 +1700,72 @@ const styles = StyleSheet.create({
     color: '#92400E',
     letterSpacing: 0.4,
   },
+
+  /* Beautifully Balanced Action Buttons */
   heroActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     marginTop: 18,
     width: '100%',
   },
-  heroPrimaryBtn: {
-    flex: 2,
+  heroEditBtn: {
+    flex: 1,
     height: 48,
-    borderRadius: 13,
-    backgroundColor: COLORS.brandNavy,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.2,
+    borderColor: '#CADCF2',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    shadowColor: COLORS.brandNavy,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 2,
+    gap: 7,
   },
-  heroPrimaryBtnText: {
-    color: '#FFFFFF',
+  heroEditBtnText: {
+    color: COLORS.brandNavy,
     fontSize: 14,
     fontWeight: '700',
+    letterSpacing: -0.1,
   },
   heroGoldBtn: {
-    flex: 2,
+    flex: 1,
     height: 48,
-    borderRadius: 13,
+    borderRadius: 14,
     backgroundColor: '#FFFBEB',
     borderWidth: 1.2,
     borderColor: '#FDE68A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 7,
   },
   heroGoldBtnText: {
     color: '#92400E',
-    fontSize: 13.5,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.1,
+  },
+
+  /* Actions when viewing other pastors */
+  heroPrimaryBtn: {
+    flex: 2,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: COLORS.brandNavy,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  heroPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '700',
   },
   heroSecondaryBtn: {
     flex: 1.5,
     height: 48,
-    borderRadius: 13,
+    borderRadius: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1811,10 +1779,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  heroShareMiniBtn: {
+  heroIdPassMiniBtn: {
     width: 48,
     height: 48,
-    borderRadius: 13,
+    borderRadius: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1989,7 +1957,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  /* Bottom Sign Out */
+  /* Bottom Sign Out (ONLY Sign Out on the page) */
   bottomSignOutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2397,35 +2365,20 @@ const styles = StyleSheet.create({
   idModalActions: {
     width: '100%',
     maxWidth: 340,
-    flexDirection: 'row',
-    gap: 10,
     marginTop: 16,
   },
-  idShareBtn: {
-    flex: 2,
-    height: 46,
-    borderRadius: 12,
+  idDoneFullBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 14,
     backgroundColor: '#D97706',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
   },
-  idShareBtnText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  idDoneBtn: {
-    flex: 1,
-    height: 46,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  idDoneBtnText: {
-    fontSize: 13.5,
+  idDoneFullBtnText: {
+    fontSize: 14.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
