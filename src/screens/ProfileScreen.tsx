@@ -13,10 +13,9 @@ import {
   Share,
   TextInput,
 } from 'react-native';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import { useApp } from '../context/AppContext';
-import { InfoBox } from '../components/InfoBox';
 import { COLORS } from '../constants/theme';
 import {
   Pastor,
@@ -35,24 +34,22 @@ try {
   SafeImagePicker = null;
 }
 
-const AVATAR_COLORS = [
-  '#0D9488', // Emerald Teal
-  '#2563EB', // Royal Blue
-  '#7C3AED', // Purple
-  '#EA580C', // Amber Coral
-  '#059669', // Mint Green
-  '#4F46E5', // Indigo
-  '#D97706', // Warm Gold
-  '#E11D48', // Vibrant Rose
+const AVATAR_GRADIENT_PAIRS = [
+  { bg: '#0F2B48', text: '#38BDF8' }, // Ocean Navy
+  { bg: '#064E3B', text: '#34D399' }, // Deep Forest
+  { bg: '#4C1D95', text: '#C084FC' }, // Royal Violet
+  { bg: '#78350F', text: '#FBBF24' }, // Imperial Gold
+  { bg: '#1E293B', text: '#94A3B8' }, // Slate Obsidian
+  { bg: '#831843', text: '#F472B6' }, // Velvet Rose
 ];
 
-const getAvatarColor = (name: string): string => {
+const getAvatarStyle = (name: string) => {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const index = Math.abs(hash) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[index];
+  const index = Math.abs(hash) % AVATAR_GRADIENT_PAIRS.length;
+  return AVATAR_GRADIENT_PAIRS[index];
 };
 
 const COMMON_DENOMINATIONS = [
@@ -199,7 +196,7 @@ export const ProfileScreen: React.FC = () => {
   const effectivePermissions =
     displayPastor?.permissions || getDefaultPermissionsForRole(displayPastor?.role || 'MEMBER');
 
-  // Contact actions (for other pastors)
+  // Contact actions
   const handleCall = () => {
     if (!displayPastor.phone) return;
     Linking.openURL(`tel:${displayPastor.phone}`).catch(() => {
@@ -226,7 +223,7 @@ export const ProfileScreen: React.FC = () => {
 
   const handleDirections = () => {
     const query = encodeURIComponent(
-      `${displayPastor.churchName}, ${displayPastor.village}, ${displayPastor.mandal}`
+      `${displayPastor.churchName}, ${displayPastor.village || ''}, ${displayPastor.mandal || ''}, ${displayPastor.district || ''}`
     );
     Linking.openURL(`https://maps.google.com/?q=${query}`).catch(() => {
       setCustomAlert({
@@ -238,7 +235,7 @@ export const ProfileScreen: React.FC = () => {
     });
   };
 
-  // Image picking
+  // Photo Picking
   const handlePickPhoto = async () => {
     if (!SafeImagePicker) {
       setCustomAlert({
@@ -392,7 +389,7 @@ export const ProfileScreen: React.FC = () => {
   const handleShareProfile = async () => {
     try {
       const message =
-        `🕊️ *ShepherdLink Pastoral Credentials*\n\n` +
+        `🕊️ *ShepherdLink Verified Pastoral Credentials*\n\n` +
         `👤 *${displayPastor.name}*\n` +
         `🏛️ Church: ${displayPastor.churchName}\n` +
         `📍 Location: ${displayPastor.village || displayPastor.mandal}, ${displayPastor.district}\n` +
@@ -401,7 +398,7 @@ export const ProfileScreen: React.FC = () => {
         `📅 Ordained: ${displayPastor.ordainedYear || '2020'}\n` +
         `📞 Phone: ${displayPastor.phone}\n` +
         `🤝 Association: ${displayPastor.associationName || currentAssociation.name} (${displayPastor.associationCode || currentAssociation.code})\n\n` +
-        `Verified clergy registration on ShepherdLink.`;
+        `Official clergy registry record verified on ShepherdLink.`;
       await Share.share({ message });
     } catch {
       // ignore
@@ -464,29 +461,26 @@ export const ProfileScreen: React.FC = () => {
     ordainedYear: displayPastor.ordainedYear || '2020',
   });
 
+  const avatarStyle = getAvatarStyle(displayPastor.name || 'Pastor');
+
   return (
     <View style={styles.screen}>
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Header Row */}
+        {/* Top Header Bar */}
         <View style={styles.topNavRow}>
-          {isMyProfile ? (
-            <View style={styles.headerAssociationBadge}>
-              <Ionicons name="shield-checkmark" size={16} color={COLORS.brandTeal} />
-              <Text style={styles.headerAssociationBadgeText} numberOfLines={1}>
-                {currentAssociation?.code || 'SHEPHERD'}
-              </Text>
-            </View>
-          ) : (
+          {!isMyProfile ? (
             <TouchableOpacity
-              style={styles.backBtn}
+              style={styles.circleIconBtn}
               activeOpacity={0.7}
               onPress={() => navigateTo('directory')}
             >
-              <Feather name="chevron-left" size={22} color={COLORS.ink} />
+              <Feather name="chevron-left" size={20} color={COLORS.ink} />
             </TouchableOpacity>
+          ) : (
+            <View style={styles.headerLeftSpacer} />
           )}
 
           <Text style={styles.topNavTitle}>
@@ -495,30 +489,26 @@ export const ProfileScreen: React.FC = () => {
 
           {isMyProfile ? (
             <TouchableOpacity
-              style={styles.logoutHeaderBtn}
+              style={styles.headerSignOutBtn}
               activeOpacity={0.7}
               onPress={() => setShowSignOutConfirm(true)}
             >
-              <Feather name="log-out" size={15} color="#DC2626" />
-              <Text style={styles.logoutHeaderText}>Sign Out</Text>
+              <Feather name="log-out" size={16} color="#DC2626" />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={styles.shareHeaderBtn}
+              style={styles.circleIconBtn}
               activeOpacity={0.7}
               onPress={handleShareProfile}
             >
-              <Feather name="share-2" size={17} color={COLORS.ink} />
+              <Feather name="share-2" size={16} color={COLORS.ink} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Hero Profile Card with Modern Appearance */}
-        <View style={styles.heroCard}>
-          {/* Subtle Accent Glow Bar */}
-          <View style={styles.heroCardAccent} />
-
-          <View style={styles.heroAvatarContainer}>
+        {/* Elegant Executive Profile Card */}
+        <View style={styles.profileHeroCard}>
+          <View style={styles.avatarWrapper}>
             {displayPastor.avatarUrl ? (
               <Image
                 source={{ uri: displayPastor.avatarUrl }}
@@ -528,11 +518,11 @@ export const ProfileScreen: React.FC = () => {
             ) : (
               <View
                 style={[
-                  styles.largeAvatar,
-                  { backgroundColor: getAvatarColor(displayPastor.name || 'Pastor') },
+                  styles.avatarInitialsCircle,
+                  { backgroundColor: avatarStyle.bg },
                 ]}
               >
-                <Text style={styles.avatarLabel}>
+                <Text style={[styles.avatarInitialsText, { color: avatarStyle.text }]}>
                   {(displayPastor.name || 'P')
                     .replace('Pastor ', '')
                     .replace('Rev. Dr. ', '')
@@ -544,386 +534,320 @@ export const ProfileScreen: React.FC = () => {
               </View>
             )}
 
-            {/* Quick edit photo icon overlay for my profile */}
             {isMyProfile && (
               <TouchableOpacity
-                style={styles.avatarEditBadge}
+                style={styles.avatarCameraBadge}
                 activeOpacity={0.8}
                 onPress={openEditModal}
               >
-                <Feather name="camera" size={14} color="#FFFFFF" />
+                <Feather name="camera" size={13} color="#FFFFFF" />
               </TouchableOpacity>
             )}
           </View>
 
-          <View style={styles.nameRow}>
-            <Text style={styles.name}>{displayPastor.name}</Text>
+          {/* Name & Official Verified Badge */}
+          <View style={styles.nameHeaderWrap}>
+            <Text style={styles.pastorDisplayName}>{displayPastor.name}</Text>
             {displayPastor.isVerified && (
-              <Ionicons name="checkmark-circle" size={22} color={COLORS.brandTeal} />
+              <Ionicons name="checkmark-circle" size={20} color={COLORS.brandTeal} />
             )}
           </View>
 
-          <Text style={styles.churchSub}>
-            {[displayPastor.churchName, displayPastor.village, displayPastor.mandal, displayPastor.district]
-              .filter(Boolean)
-              .join(' • ')}
-          </Text>
+          {/* Clean Church & Parish Subtitle */}
+          <View style={styles.churchLocationRow}>
+            <Ionicons name="location-sharp" size={14} color={COLORS.brandTeal} />
+            <Text style={styles.churchLocationText} numberOfLines={1}>
+              {[displayPastor.churchName, displayPastor.village || displayPastor.mandal, displayPastor.district]
+                .filter(Boolean)
+                .join(' • ')}
+            </Text>
+          </View>
 
-          <View style={styles.heroBadgesRow}>
-            <View
-              style={[
-                styles.roleBadge,
-                pastorIsAdmin ? styles.roleBadgeAdmin : styles.roleBadgeMember,
-              ]}
-            >
-              <Ionicons
-                name={pastorIsAdmin ? 'shield-checkmark' : 'person'}
-                size={12}
-                color={pastorIsAdmin ? '#92400E' : COLORS.brandNavy}
-              />
-              <Text
-                style={[
-                  styles.roleBadgeText,
-                  pastorIsAdmin ? styles.roleBadgeTextAdmin : styles.roleBadgeTextMember,
-                ]}
+          {/* Prestigious Role Pill */}
+          <View style={styles.prestigiousRolePill}>
+            <Ionicons
+              name={pastorIsAdmin ? 'shield-checkmark' : 'person'}
+              size={13}
+              color={pastorIsAdmin ? '#B45309' : COLORS.brandNavy}
+            />
+            <Text style={styles.prestigiousRoleText}>
+              {displayPastor.role}
+              {displayPastor.denomination ? `  •  ${displayPastor.denomination.toUpperCase()}` : ''}
+            </Text>
+          </View>
+
+          {/* Two Balanced Hero Action Buttons (Edit Profile & Digital ID) */}
+          {isMyProfile ? (
+            <View style={styles.heroActionsRow}>
+              <TouchableOpacity
+                style={styles.heroPrimaryBtn}
+                onPress={openEditModal}
+                activeOpacity={0.8}
               >
+                <Feather name="edit-3" size={16} color="#FFFFFF" />
+                <Text style={styles.heroPrimaryBtnText}>Edit Profile</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.heroGoldBtn}
+                onPress={() => setShowDigitalIdModal(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="qr-code-outline" size={17} color="#92400E" />
+                <Text style={styles.heroGoldBtnText}>Digital ID Pass</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.heroShareMiniBtn}
+                onPress={handleShareProfile}
+                activeOpacity={0.7}
+              >
+                <Feather name="share-2" size={16} color={COLORS.ink} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.heroActionsRow}>
+              <TouchableOpacity
+                style={styles.heroPrimaryBtn}
+                onPress={handleCall}
+                activeOpacity={0.8}
+              >
+                <Feather name="phone" size={16} color="#FFFFFF" />
+                <Text style={styles.heroPrimaryBtnText}>Call</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.heroSecondaryBtn}
+                onPress={handleMessage}
+                activeOpacity={0.8}
+              >
+                <Feather name="message-square" size={16} color={COLORS.ink} />
+                <Text style={styles.heroSecondaryBtnText}>Message</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.heroSecondaryBtn}
+                onPress={handleDirections}
+                activeOpacity={0.8}
+              >
+                <Feather name="map-pin" size={16} color={COLORS.ink} />
+                <Text style={styles.heroSecondaryBtnText}>Maps</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.heroShareMiniBtn}
+                onPress={() => setShowDigitalIdModal(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="card-outline" size={18} color={COLORS.brandTeal} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Association Governance & Authority Card */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionCardHeader}>
+            <View style={styles.sectionHeaderIconWrap}>
+              <Ionicons
+                name={pastorIsAdmin ? 'shield-checkmark' : 'shield-outline'}
+                size={18}
+                color={pastorIsAdmin ? '#B45309' : COLORS.brandNavy}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>Association Governance</Text>
+              <Text style={styles.sectionSubtitle}>
+                {displayPastor.associationName || currentAssociation.name}
+              </Text>
+            </View>
+
+            <View style={pastorIsAdmin ? styles.adminStatusBadge : styles.memberStatusBadge}>
+              <Text style={pastorIsAdmin ? styles.adminStatusText : styles.memberStatusText}>
                 {displayPastor.role}
               </Text>
             </View>
-
-            <View style={styles.associationChip}>
-              <Feather name="globe" size={12} color={COLORS.muted} />
-              <Text style={styles.associationChipText} numberOfLines={1}>
-                {displayPastor.associationCode || currentAssociation?.code || 'ASSOCIATION'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Action Buttons Row */}
-        {isMyProfile ? (
-          <View style={styles.myActionsRow}>
-            <TouchableOpacity
-              style={styles.actionBtnNavy}
-              onPress={openEditModal}
-              activeOpacity={0.8}
-            >
-              <Feather name="edit-3" size={17} color="#FFFFFF" />
-              <Text style={styles.actionBtnNavyText}>Edit Profile</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionBtnGold}
-              onPress={() => setShowDigitalIdModal(true)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="card-outline" size={18} color="#92400E" />
-              <Text style={styles.actionBtnGoldText}>Digital ID</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionBtnOutline}
-              onPress={handleShareProfile}
-              activeOpacity={0.8}
-            >
-              <Feather name="share-2" size={16} color={COLORS.ink} />
-              <Text style={styles.actionBtnOutlineText}>Share</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.otherActionsRow}>
-            <TouchableOpacity
-              style={styles.actionBtnNavy}
-              onPress={handleCall}
-              activeOpacity={0.8}
-            >
-              <Feather name="phone" size={17} color="#FFFFFF" />
-              <Text style={styles.actionBtnNavyText}>Call</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionBtnOutline}
-              onPress={handleMessage}
-              activeOpacity={0.7}
-            >
-              <Feather name="message-square" size={17} color={COLORS.ink} />
-              <Text style={styles.actionBtnOutlineText}>Message</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionBtnOutline}
-              onPress={handleDirections}
-              activeOpacity={0.7}
-            >
-              <Feather name="map-pin" size={17} color={COLORS.ink} />
-              <Text style={styles.actionBtnOutlineText}>Directions</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionBtnOutlineIcon}
-              onPress={() => setShowDigitalIdModal(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="card-outline" size={18} color={COLORS.brandTeal} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Quick Digital ID Teaser Banner (Only for My Profile) */}
-        {isMyProfile && (
-          <TouchableOpacity
-            style={styles.idTeaserBanner}
-            activeOpacity={0.85}
-            onPress={() => setShowDigitalIdModal(true)}
-          >
-            <View style={styles.idTeaserLeft}>
-              <View style={styles.idTeaserIconWrap}>
-                <Ionicons name="qr-code-outline" size={22} color="#B45309" />
-              </View>
-              <View style={styles.idTeaserTextWrap}>
-                <Text style={styles.idTeaserTitle}>Digital Clergy Identity Card</Text>
-                <Text style={styles.idTeaserSubtitle}>
-                  Verified QR Pass for conventions & association access
-                </Text>
-              </View>
-            </View>
-            <Feather name="chevron-right" size={20} color="#B45309" />
-          </TouchableOpacity>
-        )}
-
-        {/* ADMIN ROLE & PERMISSIONS CARD */}
-        <View style={styles.adminCard}>
-          <View style={styles.adminCardHeader}>
-            <View style={styles.adminHeaderLeft}>
-              <Ionicons
-                name={pastorIsAdmin ? 'shield-checkmark' : 'shield-outline'}
-                size={22}
-                color={pastorIsAdmin ? '#B45309' : COLORS.muted}
-              />
-              <View>
-                <Text style={styles.adminCardTitle}>Association Role & Rights</Text>
-                <Text style={styles.adminCardSubtitle}>
-                  {pastorIsAdmin
-                    ? 'Official Association Administrator'
-                    : 'Standard Association Member'}
-                </Text>
-              </View>
-            </View>
-
-            {pastorIsAdmin ? (
-              <View style={styles.adminBadge}>
-                <Ionicons name="shield" size={11} color="#92400E" />
-                <Text style={styles.adminBadgeText}>{displayPastor.role}</Text>
-              </View>
-            ) : (
-              <View style={styles.memberBadge}>
-                <Text style={styles.memberBadgeText}>{displayPastor.role}</Text>
-              </View>
-            )}
           </View>
 
-          {/* Permissions Breakdown List */}
-          <View style={styles.permissionsGrid}>
-            <View style={styles.permPill}>
-              <Ionicons
-                name={effectivePermissions.canManageMembers ? 'checkmark-circle' : 'lock-closed'}
-                size={14}
-                color={effectivePermissions.canManageMembers ? COLORS.brandTeal : COLORS.muted}
-              />
-              <Text
-                style={[
-                  styles.permPillText,
-                  !effectivePermissions.canManageMembers && styles.permPillTextDisabled,
-                ]}
-              >
-                Manage Members
+          {/* Summary Authority Metrics */}
+          <View style={styles.authorityGrid}>
+            <View style={styles.authorityTile}>
+              <View style={styles.authorityTileIcon}>
+                <Ionicons
+                  name={effectivePermissions.canManageMembers ? 'checkmark-circle' : 'close-circle'}
+                  size={16}
+                  color={effectivePermissions.canManageMembers ? '#059669' : COLORS.muted}
+                />
+              </View>
+              <Text style={styles.authorityTileTitle}>Directory Access</Text>
+              <Text style={styles.authorityTileSub}>
+                {effectivePermissions.canManageMembers ? 'Manage pastors' : 'Directory view'}
               </Text>
             </View>
 
-            <View style={styles.permPill}>
-              <Ionicons
-                name={effectivePermissions.canAssignRoles ? 'checkmark-circle' : 'lock-closed'}
-                size={14}
-                color={effectivePermissions.canAssignRoles ? COLORS.brandTeal : COLORS.muted}
-              />
-              <Text
-                style={[
-                  styles.permPillText,
-                  !effectivePermissions.canAssignRoles && styles.permPillTextDisabled,
-                ]}
-              >
-                Assign Roles
+            <View style={styles.authorityTile}>
+              <View style={styles.authorityTileIcon}>
+                <Ionicons
+                  name={effectivePermissions.canCreateEvents ? 'checkmark-circle' : 'close-circle'}
+                  size={16}
+                  color={effectivePermissions.canCreateEvents ? '#059669' : COLORS.muted}
+                />
+              </View>
+              <Text style={styles.authorityTileTitle}>Meetings & Events</Text>
+              <Text style={styles.authorityTileSub}>
+                {effectivePermissions.canCreateEvents ? 'Publish conventions' : 'Attendee RSVP'}
               </Text>
             </View>
 
-            <View style={styles.permPill}>
-              <Ionicons
-                name={effectivePermissions.canCreateEvents ? 'checkmark-circle' : 'lock-closed'}
-                size={14}
-                color={effectivePermissions.canCreateEvents ? COLORS.brandTeal : COLORS.muted}
-              />
-              <Text
-                style={[
-                  styles.permPillText,
-                  !effectivePermissions.canCreateEvents && styles.permPillTextDisabled,
-                ]}
-              >
-                Create Events
+            <View style={styles.authorityTile}>
+              <View style={styles.authorityTileIcon}>
+                <Ionicons
+                  name={effectivePermissions.canTrackAttendance ? 'checkmark-circle' : 'close-circle'}
+                  size={16}
+                  color={effectivePermissions.canTrackAttendance ? '#059669' : COLORS.muted}
+                />
+              </View>
+              <Text style={styles.authorityTileTitle}>Attendance Register</Text>
+              <Text style={styles.authorityTileSub}>
+                {effectivePermissions.canTrackAttendance ? 'Scan & verify' : 'Digital QR check-in'}
               </Text>
             </View>
 
-            <View style={styles.permPill}>
-              <Ionicons
-                name={effectivePermissions.canTrackAttendance ? 'checkmark-circle' : 'lock-closed'}
-                size={14}
-                color={effectivePermissions.canTrackAttendance ? COLORS.brandTeal : COLORS.muted}
-              />
-              <Text
-                style={[
-                  styles.permPillText,
-                  !effectivePermissions.canTrackAttendance && styles.permPillTextDisabled,
-                ]}
-              >
-                Track Attendance
-              </Text>
-            </View>
-
-            <View style={styles.permPill}>
-              <Ionicons
-                name={effectivePermissions.canManageDonations ? 'checkmark-circle' : 'lock-closed'}
-                size={14}
-                color={effectivePermissions.canManageDonations ? COLORS.brandTeal : COLORS.muted}
-              />
-              <Text
-                style={[
-                  styles.permPillText,
-                  !effectivePermissions.canManageDonations && styles.permPillTextDisabled,
-                ]}
-              >
-                Manage Donations
-              </Text>
-            </View>
-
-            <View style={styles.permPill}>
-              <Ionicons
-                name={effectivePermissions.canBroadcastNotices ? 'checkmark-circle' : 'lock-closed'}
-                size={14}
-                color={effectivePermissions.canBroadcastNotices ? COLORS.brandTeal : COLORS.muted}
-              />
-              <Text
-                style={[
-                  styles.permPillText,
-                  !effectivePermissions.canBroadcastNotices && styles.permPillTextDisabled,
-                ]}
-              >
-                Broadcast Notices
+            <View style={styles.authorityTile}>
+              <View style={styles.authorityTileIcon}>
+                <Ionicons
+                  name={effectivePermissions.canBroadcastNotices ? 'checkmark-circle' : 'close-circle'}
+                  size={16}
+                  color={effectivePermissions.canBroadcastNotices ? '#059669' : COLORS.muted}
+                />
+              </View>
+              <Text style={styles.authorityTileTitle}>Circulars & Notices</Text>
+              <Text style={styles.authorityTileSub}>
+                {effectivePermissions.canBroadcastNotices ? 'Official broadcasts' : 'Member receiver'}
               </Text>
             </View>
           </View>
 
-          {/* Manage Button for Association Admins */}
+          {/* Admin Rights Configurator Button */}
           {currentUser.isAdmin && (
             <TouchableOpacity
-              style={styles.adminActionBtn}
+              style={styles.manageRoleBtn}
               onPress={openManageModal}
               activeOpacity={0.8}
             >
-              <Feather name="sliders" size={15} color={COLORS.brandNavy} />
-              <Text style={styles.adminActionBtnText}>Manage Role & Permissions</Text>
+              <Feather name="sliders" size={14} color={COLORS.brandNavy} />
+              <Text style={styles.manageRoleBtnText}>Manage Role & Access Privileges</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Pastoral Profile Credentials & Ministry Details Card */}
-        <View style={styles.detailsCard}>
-          <View style={styles.detailsCardHeader}>
-            <Feather name="book-open" size={16} color={COLORS.brandTeal} />
-            <Text style={styles.detailsCardTitle}>Ministry & Registry Details</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailKey}>Association</Text>
-            <Text style={styles.detailValue}>
-              {displayPastor.associationName ||
-                `${displayPastor.mandal || displayPastor.district || 'Fellowship'} Pastors Association`}
-            </Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailKey}>Registry Code</Text>
-            <Text style={[styles.detailValue, { fontWeight: '700', color: COLORS.brandTeal }]}>
-              {displayPastor.associationCode || currentAssociation.code || 'SHEP-REG-001'}
-            </Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailKey}>Mobile Phone</Text>
-            <Text style={styles.detailValue}>{displayPastor.phone || 'Not provided'}</Text>
-          </View>
-
-          {displayPastor.gender ? (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailKey}>Gender</Text>
-              <Text style={styles.detailValue}>{displayPastor.gender}</Text>
+        {/* Detailed Pastoral & Parish Credentials */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionCardHeader}>
+            <View style={[styles.sectionHeaderIconWrap, { backgroundColor: COLORS.brandTealSoft }]}>
+              <MaterialCommunityIcons name="church" size={18} color={COLORS.brandTeal} />
             </View>
-          ) : null}
-
-          {displayPastor.dateOfBirth ? (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailKey}>Date of Birth</Text>
-              <Text style={styles.detailValue}>{displayPastor.dateOfBirth}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>Ministry & Parish Records</Text>
+              <Text style={styles.sectionSubtitle}>Registered Clergy Information</Text>
             </View>
-          ) : null}
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailKey}>Church Address</Text>
-            <Text style={styles.detailValue}>
-              {displayPastor.churchAddress ||
-                [displayPastor.churchName, displayPastor.village, displayPastor.mandal, displayPastor.district]
-                  .filter(Boolean)
-                  .join(', ')}
-            </Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailKey}>Denomination</Text>
-            <Text style={styles.detailValue}>{displayPastor.denomination || 'Independent'}</Text>
-          </View>
+          <View style={styles.infoItemsList}>
+            {/* Contact */}
+            <View style={styles.infoItem}>
+              <View style={styles.infoItemIcon}>
+                <Feather name="phone" size={15} color={COLORS.ink} />
+              </View>
+              <View style={styles.infoItemContent}>
+                <Text style={styles.infoItemLabel}>Contact Number</Text>
+                <Text style={styles.infoItemValue}>{displayPastor.phone || 'Not registered'}</Text>
+              </View>
+              {displayPastor.phone ? (
+                <TouchableOpacity
+                  style={styles.infoItemAction}
+                  onPress={handleCall}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="phone-call" size={14} color={COLORS.brandNavy} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailKey}>Ordained Year</Text>
-            <Text style={styles.detailValue}>{displayPastor.ordainedYear || '2020'}</Text>
-          </View>
+            {/* Church Address */}
+            <View style={styles.infoItem}>
+              <View style={styles.infoItemIcon}>
+                <Feather name="map-pin" size={15} color={COLORS.ink} />
+              </View>
+              <View style={styles.infoItemContent}>
+                <Text style={styles.infoItemLabel}>Church Address & Locality</Text>
+                <Text style={styles.infoItemValue}>
+                  {displayPastor.churchAddress ||
+                    [displayPastor.churchName, displayPastor.village, displayPastor.mandal, displayPastor.district]
+                      .filter(Boolean)
+                      .join(', ')}
+                </Text>
+              </View>
+            </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailKey}>Ministry Calling</Text>
-            <Text style={styles.detailValue}>{displayPastor.ministry || 'Pastoral Ministry'}</Text>
-          </View>
+            {/* Ecclesiastical Credentials */}
+            <View style={styles.infoItem}>
+              <View style={styles.infoItemIcon}>
+                <MaterialCommunityIcons name="book-cross" size={16} color={COLORS.ink} />
+              </View>
+              <View style={styles.infoItemContent}>
+                <Text style={styles.infoItemLabel}>Denomination & Ordination</Text>
+                <Text style={styles.infoItemValue}>
+                  {displayPastor.denomination || 'Independent'}  •  Ordained in {displayPastor.ordainedYear || '2020'}
+                </Text>
+              </View>
+            </View>
 
-          <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
-            <Text style={styles.detailKey}>Languages</Text>
-            <Text style={styles.detailValue}>
-              {displayPastor.languages?.join(', ') || 'Telugu, English'}
-            </Text>
+            {/* Calling & Responsibilities */}
+            <View style={styles.infoItem}>
+              <View style={styles.infoItemIcon}>
+                <Feather name="award" size={15} color={COLORS.ink} />
+              </View>
+              <View style={styles.infoItemContent}>
+                <Text style={styles.infoItemLabel}>Ministry Calling</Text>
+                <Text style={styles.infoItemValue}>
+                  {displayPastor.ministry || 'Pastoral & Ministry Leadership'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Languages */}
+            <View style={[styles.infoItem, { borderBottomWidth: 0 }]}>
+              <View style={styles.infoItemIcon}>
+                <Feather name="globe" size={15} color={COLORS.ink} />
+              </View>
+              <View style={styles.infoItemContent}>
+                <Text style={styles.infoItemLabel}>Languages Spoken</Text>
+                <Text style={styles.infoItemValue}>
+                  {displayPastor.languages?.join(', ') || 'Telugu, English'}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
-        {/* Privacy Note */}
-        <InfoBox
-          type="amber"
-          icon="lock"
-          text="Clergy identity and church contact records are accessible exclusively to verified pastors of this association."
-        />
+        {/* Association Security Assurance Note */}
+        <View style={styles.securityNoteCard}>
+          <Feather name="shield" size={16} color="#B45309" />
+          <Text style={styles.securityNoteText}>
+            Personal contact numbers and ordination records are safeguarded and visible exclusively to verified members within this association.
+          </Text>
+        </View>
 
-        {/* Sign Out Button at Bottom of My Profile */}
+        {/* Bottom Sign Out Button for My Profile */}
         {isMyProfile && (
           <TouchableOpacity
-            style={styles.logoutFullBtn}
+            style={styles.bottomSignOutBtn}
             onPress={() => setShowSignOutConfirm(true)}
             activeOpacity={0.8}
           >
-            <Feather name="log-out" size={18} color="#DC2626" />
-            <Text style={styles.logoutFullBtnText}>Sign Out of ShepherdLink</Text>
+            <Feather name="log-out" size={16} color="#DC2626" />
+            <Text style={styles.bottomSignOutText}>Sign Out of ShepherdLink</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -949,14 +873,14 @@ export const ProfileScreen: React.FC = () => {
                 onPress={() => setShowEditModal(false)}
                 style={styles.modalCloseBtn}
               >
-                <Feather name="x" size={20} color={COLORS.ink} />
+                <Feather name="x" size={18} color={COLORS.ink} />
               </TouchableOpacity>
             </View>
 
             <ScrollView
               style={styles.modalScroll}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 24 }}
+              contentContainerStyle={{ paddingBottom: 28 }}
             >
               {/* Photo Selector Section */}
               <View style={styles.photoPickerContainer}>
@@ -971,10 +895,10 @@ export const ProfileScreen: React.FC = () => {
                     <View
                       style={[
                         styles.photoPickerPlaceholder,
-                        { backgroundColor: getAvatarColor(editName || 'Pastor') },
+                        { backgroundColor: avatarStyle.bg },
                       ]}
                     >
-                      <Text style={styles.photoPickerPlaceholderText}>
+                      <Text style={[styles.photoPickerPlaceholderText, { color: avatarStyle.text }]}>
                         {(editName || 'P').charAt(0).toUpperCase()}
                       </Text>
                     </View>
@@ -987,8 +911,8 @@ export const ProfileScreen: React.FC = () => {
                     onPress={handlePickPhoto}
                     activeOpacity={0.8}
                   >
-                    <Feather name="image" size={15} color={COLORS.brandNavy} />
-                    <Text style={styles.photoPickBtnText}>Select Photo</Text>
+                    <Feather name="image" size={14} color={COLORS.brandNavy} />
+                    <Text style={styles.photoPickBtnText}>Upload Photo</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -996,7 +920,7 @@ export const ProfileScreen: React.FC = () => {
                     onPress={handleTakePhoto}
                     activeOpacity={0.8}
                   >
-                    <Feather name="camera" size={15} color={COLORS.ink} />
+                    <Feather name="camera" size={14} color={COLORS.ink} />
                     <Text style={styles.photoPickBtnOutlineText}>Camera</Text>
                   </TouchableOpacity>
 
@@ -1029,7 +953,7 @@ export const ProfileScreen: React.FC = () => {
               {/* Form Input: Phone Number */}
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>
-                  Mobile Phone <Text style={styles.requiredAsterisk}>*</Text>
+                  Mobile Phone Number <Text style={styles.requiredAsterisk}>*</Text>
                 </Text>
                 <TextInput
                   style={styles.formInput}
@@ -1073,7 +997,7 @@ export const ProfileScreen: React.FC = () => {
                     style={styles.formInput}
                     value={editMandal}
                     onChangeText={setEditMandal}
-                    placeholder="e.g. Bheemunipatnam"
+                    placeholder="e.g. Bheemili"
                     placeholderTextColor={COLORS.muted}
                   />
                 </View>
@@ -1187,7 +1111,7 @@ export const ProfileScreen: React.FC = () => {
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <>
-                    <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+                    <Ionicons name="checkmark-circle-outline" size={19} color="#FFFFFF" />
                     <Text style={styles.saveProfileBtnText}>Save Profile Changes</Text>
                   </>
                 )}
@@ -1213,19 +1137,19 @@ export const ProfileScreen: React.FC = () => {
               onPress={() => setShowDigitalIdModal(false)}
               style={styles.digitalIdCloseBtn}
             >
-              <Feather name="x" size={20} color="#FFFFFF" />
+              <Feather name="x" size={18} color="#FFFFFF" />
             </TouchableOpacity>
 
             <ScrollView
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ alignItems: 'center', paddingBottom: 20 }}
+              contentContainerStyle={{ alignItems: 'center', paddingBottom: 24 }}
             >
               {/* THE OFFICIAL CREDENTIAL CARD */}
               <View style={styles.idCardContainer}>
                 {/* Gold Crest Top Border */}
                 <View style={styles.idCardHeader}>
                   <View style={styles.idCardEmblemRow}>
-                    <Ionicons name="shield-checkmark" size={22} color="#D97706" />
+                    <Ionicons name="shield-checkmark" size={20} color="#D97706" />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.idCardAssocTitle} numberOfLines={1}>
                         {displayPastor.associationName || currentAssociation.name}
@@ -1255,10 +1179,10 @@ export const ProfileScreen: React.FC = () => {
                       <View
                         style={[
                           styles.idCardAvatarPlaceholder,
-                          { backgroundColor: getAvatarColor(displayPastor.name || 'Pastor') },
+                          { backgroundColor: avatarStyle.bg },
                         ]}
                       >
-                        <Text style={styles.idCardAvatarText}>
+                        <Text style={[styles.idCardAvatarText, { color: avatarStyle.text }]}>
                           {(displayPastor.name || 'P')
                             .replace('Pastor ', '')
                             .charAt(0)
@@ -1291,7 +1215,7 @@ export const ProfileScreen: React.FC = () => {
                   <View style={styles.idCardQRWrap}>
                     <QRCode
                       value={digitalIdPayload}
-                      size={140}
+                      size={130}
                       color="#0F172A"
                       backgroundColor="#FFFFFF"
                     />
@@ -1317,7 +1241,7 @@ export const ProfileScreen: React.FC = () => {
                   onPress={handleShareProfile}
                   activeOpacity={0.8}
                 >
-                  <Feather name="share-2" size={16} color="#FFFFFF" />
+                  <Feather name="share-2" size={15} color="#FFFFFF" />
                   <Text style={styles.idShareBtnText}>Share Clergy Pass</Text>
                 </TouchableOpacity>
 
@@ -1354,14 +1278,14 @@ export const ProfileScreen: React.FC = () => {
                 onPress={() => setShowManageModal(false)}
                 style={styles.modalCloseBtn}
               >
-                <Feather name="x" size={20} color={COLORS.ink} />
+                <Feather name="x" size={18} color={COLORS.ink} />
               </TouchableOpacity>
             </View>
 
             <ScrollView
               style={styles.modalScroll}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 24 }}
+              contentContainerStyle={{ paddingBottom: 28 }}
             >
               {/* Role Selection */}
               <View style={styles.inputGroup}>
@@ -1571,7 +1495,7 @@ export const ProfileScreen: React.FC = () => {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons name="checkmark-sharp" size={18} color="#FFFFFF" />
+                    <Ionicons name="checkmark-sharp" size={17} color="#FFFFFF" />
                     <Text style={styles.submitBtnText}>Save Role & Permissions</Text>
                   </>
                 )}
@@ -1593,12 +1517,12 @@ export const ProfileScreen: React.FC = () => {
         <View style={styles.modalOverlayCenter}>
           <View style={styles.confirmPopupCard}>
             <View style={styles.confirmIconCircleDanger}>
-              <Feather name="log-out" size={26} color="#DC2626" />
+              <Feather name="log-out" size={24} color="#DC2626" />
             </View>
 
             <Text style={styles.confirmTitle}>Sign Out of ShepherdLink?</Text>
             <Text style={styles.confirmSubtitle}>
-              You are signed in as <Text style={{ fontWeight: '700' }}>{displayPastor.name}</Text>. You can sign back in anytime using your phone number.
+              You are currently signed in as <Text style={{ fontWeight: '700' }}>{displayPastor.name}</Text>. You can log back in at any time.
             </Text>
 
             <View style={styles.confirmActionsRow}>
@@ -1645,7 +1569,7 @@ export const ProfileScreen: React.FC = () => {
             >
               <Ionicons
                 name={customAlert.type === 'success' ? 'checkmark-circle' : 'alert-circle'}
-                size={32}
+                size={30}
                 color={customAlert.type === 'success' ? '#059669' : '#DC2626'}
               />
             </View>
@@ -1670,243 +1594,173 @@ export const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: COLORS.ground,
+    backgroundColor: '#F8FAFC',
   },
   container: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
-    gap: 16,
+    paddingTop: 12,
+    paddingBottom: 44,
+    gap: 14,
     width: '100%',
     maxWidth: 480,
     alignSelf: 'center',
   },
 
-  /* Top Nav */
+  /* Top Navigation Bar */
   topNavRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    paddingVertical: 4,
+  },
+  headerLeftSpacer: {
+    width: 38,
   },
   topNavTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: COLORS.ink,
-    letterSpacing: -0.2,
+    color: '#0F172A',
+    letterSpacing: -0.3,
   },
-  backBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  circleIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: COLORS.line,
+    borderColor: '#E2E8F0',
   },
-  headerAssociationBadge: {
-    flexDirection: 'row',
+  headerSignOutBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: COLORS.brandTealSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#B2EBF2',
-    maxWidth: 120,
-  },
-  headerAssociationBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.brandTeal,
-    letterSpacing: 0.5,
-  },
-  logoutHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: 10,
+    justifyContent: 'center',
     backgroundColor: '#FEE2E2',
     borderWidth: 1,
     borderColor: '#FECACA',
   },
-  logoutHeaderText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#DC2626',
-  },
-  shareHeaderBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: COLORS.line,
-  },
 
-  /* Hero Card */
-  heroCard: {
+  /* Executive Hero Card */
+  profileHeroCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingVertical: 24,
-    paddingHorizontal: 20,
+    borderRadius: 22,
+    paddingVertical: 22,
+    paddingHorizontal: 18,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.soft,
+    borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 10,
-    elevation: 3,
-    position: 'relative',
-    overflow: 'hidden',
+    elevation: 2,
   },
-  heroCardAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 5,
-    backgroundColor: COLORS.brandTeal,
-  },
-  heroAvatarContainer: {
+  avatarWrapper: {
     position: 'relative',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   avatarImage: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
     borderWidth: 3,
     borderColor: '#FFFFFF',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.12,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
   },
-  largeAvatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+  avatarInitialsCircle: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: '#FFFFFF',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.12,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
   },
-  avatarLabel: {
-    fontSize: 36,
+  avatarInitialsText: {
+    fontSize: 34,
     fontWeight: '800',
-    color: '#FFFFFF',
   },
-  avatarEditBadge: {
+  avatarCameraBadge: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
+    bottom: -2,
+    right: -2,
     backgroundColor: COLORS.brandNavy,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
   },
-  nameRow: {
+  nameHeaderWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    marginTop: 6,
-  },
-  name: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.ink,
-    textAlign: 'center',
-  },
-  churchSub: {
-    fontSize: 13,
-    color: COLORS.muted,
-    textAlign: 'center',
-    marginTop: 3,
     paddingHorizontal: 8,
   },
-  heroBadgesRow: {
+  pastorDisplayName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+  churchLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
+    gap: 4,
+    marginTop: 4,
+    paddingHorizontal: 12,
   },
-  roleBadge: {
+  churchLocationText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  prestigiousRolePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 10,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 14,
-  },
-  roleBadgeAdmin: {
-    backgroundColor: '#FEF3C7',
     borderWidth: 1,
     borderColor: '#FDE68A',
+    marginTop: 10,
   },
-  roleBadgeMember: {
-    backgroundColor: COLORS.brandNavySoft,
-    borderWidth: 1,
-    borderColor: '#C7D9EE',
-  },
-  roleBadgeText: {
+  prestigiousRoleText: {
     fontSize: 11,
     fontWeight: '800',
+    color: '#92400E',
     letterSpacing: 0.4,
   },
-  roleBadgeTextAdmin: {
-    color: '#92400E',
-  },
-  roleBadgeTextMember: {
-    color: COLORS.brandNavy,
-  },
-  associationChip: {
+  heroActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  associationChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.muted,
-  },
-
-  /* Action Buttons */
-  myActionsRow: {
-    flexDirection: 'row',
     gap: 10,
+    marginTop: 18,
+    width: '100%',
   },
-  otherActionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionBtnNavy: {
+  heroPrimaryBtn: {
     flex: 2,
-    height: 52,
-    borderRadius: 14,
+    height: 48,
+    borderRadius: 13,
     backgroundColor: COLORS.brandNavy,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1914,133 +1768,97 @@ const styles = StyleSheet.create({
     gap: 6,
     shadowColor: COLORS.brandNavy,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.18,
     shadowRadius: 4,
     elevation: 2,
   },
-  actionBtnNavyText: {
+  heroPrimaryBtnText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
   },
-  actionBtnGold: {
+  heroGoldBtn: {
     flex: 2,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
+    height: 48,
+    borderRadius: 13,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1.2,
     borderColor: '#FDE68A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
-  actionBtnGoldText: {
+  heroGoldBtnText: {
     color: '#92400E',
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
   },
-  actionBtnOutline: {
+  heroSecondaryBtn: {
     flex: 1.5,
-    height: 52,
-    borderRadius: 14,
+    height: 48,
+    borderRadius: 13,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: COLORS.field,
+    borderColor: '#E2E8F0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
   },
-  actionBtnOutlineText: {
-    color: COLORS.ink,
+  heroSecondaryBtnText: {
+    color: '#1E293B',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  actionBtnOutlineIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
+  heroShareMiniBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 13,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: COLORS.field,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  /* ID Teaser Banner */
-  idTeaserBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFBEB',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  idTeaserLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  idTeaserIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  idTeaserTextWrap: {
-    flex: 1,
-  },
-  idTeaserTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#92400E',
-  },
-  idTeaserSubtitle: {
-    fontSize: 11,
-    color: '#B45309',
-    marginTop: 1,
-  },
-
-  /* Admin Role Card */
-  adminCard: {
+  /* Standard Section Card */
+  sectionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: COLORS.soft,
-    gap: 14,
+    borderColor: '#E2E8F0',
+    gap: 12,
   },
-  adminCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  adminHeaderLeft: {
+  sectionCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    flex: 1,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  adminCardTitle: {
+  sectionHeaderIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.ink,
+    color: '#0F172A',
   },
-  adminCardSubtitle: {
+  sectionSubtitle: {
     fontSize: 11,
-    color: COLORS.muted,
+    color: '#64748B',
+    fontWeight: '500',
     marginTop: 1,
   },
-  adminBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  adminStatusBadge: {
     backgroundColor: '#FEF3C7',
     borderWidth: 1,
     borderColor: '#FDE68A',
@@ -2048,124 +1866,144 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 8,
   },
-  adminBadgeText: {
+  adminStatusText: {
     fontSize: 10,
     fontWeight: '800',
     color: '#92400E',
-    letterSpacing: 0.3,
   },
-  memberBadge: {
-    backgroundColor: '#F3F4F6',
+  memberStatusBadge: {
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
   },
-  memberBadgeText: {
+  memberStatusText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#6B7280',
-    letterSpacing: 0.3,
+    color: '#64748B',
   },
-  permissionsGrid: {
+
+  /* Authority Grid */
+  authorityGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  permPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: COLORS.ground,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+  authorityTile: {
+    width: '48.5%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 10,
     borderWidth: 1,
-    borderColor: COLORS.soft,
+    borderColor: '#E2E8F0',
   },
-  permPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.ink,
+  authorityTileIcon: {
+    marginBottom: 4,
   },
-  permPillTextDisabled: {
-    color: COLORS.muted,
+  authorityTileTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
   },
-  adminActionBtn: {
+  authorityTileSub: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  manageRoleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: COLORS.brandNavySoft,
-    paddingVertical: 11,
+    paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#CADCF2',
     marginTop: 2,
   },
-  adminActionBtnText: {
-    fontSize: 13,
+  manageRoleBtnText: {
+    fontSize: 12.5,
     fontWeight: '700',
     color: COLORS.brandNavy,
   },
 
-  /* Details Card */
-  detailsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.soft,
+  /* Ministry Records List */
+  infoItemsList: {
+    gap: 0,
   },
-  detailsCardHeader: {
+  infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingBottom: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.soft,
-    marginBottom: 4,
+    borderBottomColor: '#F1F5F9',
+    gap: 10,
   },
-  detailsCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.ink,
+  infoItemIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.soft,
-  },
-  detailKey: {
-    fontSize: 13,
-    color: COLORS.muted,
-    fontWeight: '500',
+  infoItemContent: {
     flex: 1,
   },
-  detailValue: {
+  infoItemLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  infoItemValue: {
     fontSize: 13,
-    color: COLORS.ink,
-    fontWeight: '600',
-    flex: 1.5,
-    textAlign: 'right',
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 1,
+  },
+  infoItemAction: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.brandNavySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  /* Full Logout Button at Profile Bottom */
-  logoutFullBtn: {
+  /* Security Note */
+  securityNoteCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  securityNoteText: {
+    fontSize: 11,
+    color: '#92400E',
+    lineHeight: 16,
+    flex: 1,
+  },
+
+  /* Bottom Sign Out */
+  bottomSignOutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#FEF2F2',
-    paddingVertical: 14,
+    paddingVertical: 13,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#FECACA',
     marginTop: 4,
   },
-  logoutFullBtnText: {
-    fontSize: 14,
+  bottomSignOutText: {
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#DC2626',
   },
@@ -2187,71 +2025,70 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingTop: 20,
-    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingHorizontal: 18,
     maxHeight: '90%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 16,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.soft,
+    borderBottomColor: '#F1F5F9',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    color: COLORS.ink,
+    color: '#0F172A',
   },
   modalSubtitle: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginTop: 2,
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 1,
   },
   modalCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.ground,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalScroll: {
-    marginTop: 12,
+    marginTop: 10,
   },
 
   /* ==================== EDIT PROFILE STYLES ==================== */
   photoPickerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    paddingVertical: 14,
-    marginBottom: 6,
+    gap: 14,
+    paddingVertical: 12,
+    marginBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.soft,
+    borderBottomColor: '#F1F5F9',
   },
   photoPickerAvatarWrapper: {
     position: 'relative',
   },
   photoPickerImage: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     borderWidth: 2,
     borderColor: COLORS.brandTeal,
   },
   photoPickerPlaceholder: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
   photoPickerPlaceholderText: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
-    color: '#FFFFFF',
   },
   photoPickerActions: {
     flex: 1,
@@ -2264,8 +2101,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: COLORS.brandNavySoft,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#CADCF2',
@@ -2280,50 +2117,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 11,
-    paddingVertical: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.field,
+    borderColor: '#CBD5E1',
   },
   photoPickBtnOutlineText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.ink,
+    color: '#0F172A',
   },
   photoRemoveBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#FEE2E2',
     alignItems: 'center',
     justifyContent: 'center',
   },
   formGroup: {
-    marginTop: 14,
+    marginTop: 12,
   },
   formRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   formLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.ink,
-    marginBottom: 6,
+    color: '#0F172A',
+    marginBottom: 5,
   },
   requiredAsterisk: {
     color: '#DC2626',
   },
   formInput: {
-    height: 48,
-    backgroundColor: COLORS.ground,
+    height: 46,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: COLORS.line,
+    borderColor: '#CBD5E1',
     borderRadius: 12,
-    paddingHorizontal: 14,
-    fontSize: 14,
-    color: COLORS.ink,
+    paddingHorizontal: 12,
+    fontSize: 13.5,
+    color: '#0F172A',
   },
   chipsContainer: {
     flexDirection: 'row',
@@ -2334,10 +2171,10 @@ const styles = StyleSheet.create({
   chip: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: COLORS.line,
-    paddingHorizontal: 10,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 9,
     paddingVertical: 5,
-    borderRadius: 12,
+    borderRadius: 10,
   },
   chipSelected: {
     backgroundColor: COLORS.brandTealSoft,
@@ -2346,36 +2183,36 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: COLORS.muted,
+    color: '#64748B',
   },
   chipTextSelected: {
     color: COLORS.brandTeal,
     fontWeight: '700',
   },
   saveProfileBtn: {
-    height: 52,
-    borderRadius: 14,
+    height: 48,
+    borderRadius: 13,
     backgroundColor: COLORS.brandNavy,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 22,
+    gap: 6,
+    marginTop: 20,
     shadowColor: COLORS.brandNavy,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
     elevation: 3,
   },
   saveProfileBtnText: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
 
   /* ==================== DIGITAL ID CARD STYLES ==================== */
   digitalIdModalCard: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#0B132B',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: 16,
@@ -2384,19 +2221,19 @@ const styles = StyleSheet.create({
   },
   digitalIdCloseBtn: {
     alignSelf: 'flex-end',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   idCardContainer: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 340,
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: '#F59E0B',
@@ -2408,22 +2245,22 @@ const styles = StyleSheet.create({
   },
   idCardHeader: {
     backgroundColor: '#002B5C',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: 3,
+    borderBottomWidth: 2.5,
     borderBottomColor: '#D97706',
   },
   idCardEmblemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flex: 1,
   },
   idCardAssocTitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '800',
     color: '#FFFFFF',
   },
@@ -2431,92 +2268,91 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '700',
     color: '#FDE68A',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
     marginTop: 1,
   },
   idCardRegistryCodeBadge: {
     backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#F59E0B',
   },
   idCardRegistryCode: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
     color: '#FDE68A',
   },
   idCardBody: {
     alignItems: 'center',
-    paddingTop: 18,
-    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingHorizontal: 14,
   },
   idCardAvatarWrapper: {
     position: 'relative',
     marginBottom: 8,
   },
   idCardAvatarImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2.5,
     borderColor: '#D97706',
   },
   idCardAvatarPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
+    borderWidth: 2.5,
     borderColor: '#D97706',
   },
   idCardAvatarText: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '800',
-    color: '#FFFFFF',
   },
   idCardVerifiedDot: {
     position: 'absolute',
     bottom: 0,
     right: 0,
     backgroundColor: '#059669',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
   idCardPastorName: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
   },
   idCardRolePill: {
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 2.5,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#FDE68A',
     marginTop: 4,
   },
   idCardRoleText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
     color: '#92400E',
     letterSpacing: 0.4,
   },
   idCardChurchName: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#334155',
     textAlign: 'center',
-    marginTop: 6,
+    marginTop: 5,
   },
   idCardLocation: {
     fontSize: 11,
@@ -2526,82 +2362,77 @@ const styles = StyleSheet.create({
   },
   idCardQRSection: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
   },
   idCardQRWrap: {
-    padding: 10,
+    padding: 8,
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   idCardQRHint: {
-    fontSize: 10,
+    fontSize: 9.5,
     color: '#64748B',
     fontWeight: '600',
-    marginTop: 8,
+    marginTop: 6,
   },
   idCardSecurityStrip: {
     backgroundColor: '#FEF3C7',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
     borderTopWidth: 1,
     borderTopColor: '#FDE68A',
   },
   idCardSecurityText: {
-    fontSize: 8,
+    fontSize: 7.5,
     fontWeight: '800',
     color: '#92400E',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   idModalActions: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 340,
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 18,
+    gap: 10,
+    marginTop: 16,
   },
   idShareBtn: {
     flex: 2,
-    height: 48,
+    height: 46,
     borderRadius: 12,
     backgroundColor: '#D97706',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
   },
   idShareBtnText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   idDoneBtn: {
     flex: 1,
-    height: 48,
+    height: 46,
     borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   idDoneBtnText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
 
   /* ==================== ADMIN MANAGE ROLES MODAL STYLES ==================== */
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 18,
   },
   sectionTitleRow: {
     flexDirection: 'row',
@@ -2610,126 +2441,126 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
-    color: COLORS.ink,
+    color: '#0F172A',
   },
   sublabel: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginBottom: 12,
+    fontSize: 11.5,
+    color: '#64748B',
+    marginBottom: 10,
   },
   ruleBadge: {
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 5,
   },
   ruleBadgeText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
     color: '#92400E',
   },
   ruleHelpText: {
-    fontSize: 11,
-    color: COLORS.muted,
-    marginBottom: 12,
-    lineHeight: 16,
+    fontSize: 10.5,
+    color: '#64748B',
+    marginBottom: 10,
+    lineHeight: 15,
   },
   rolesGrid: {
-    gap: 10,
+    gap: 8,
   },
   roleOptionCard: {
-    backgroundColor: COLORS.ground,
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 11,
+    padding: 11,
     borderWidth: 1,
-    borderColor: COLORS.soft,
+    borderColor: '#E2E8F0',
   },
   roleOptionCardSelected: {
     backgroundColor: '#FFFFFF',
     borderColor: COLORS.brandNavy,
-    borderWidth: 2,
+    borderWidth: 1.8,
   },
   roleCardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   roleTitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
-    color: COLORS.ink,
+    color: '#0F172A',
   },
   roleDesc: {
-    fontSize: 11,
-    color: COLORS.muted,
-    marginTop: 2,
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 1,
   },
   adminPill: {
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
     borderRadius: 4,
   },
   adminPillText: {
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: '800',
     color: '#92400E',
   },
   memberPill: {
     backgroundColor: '#E5E7EB',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
     borderRadius: 4,
   },
   memberPillText: {
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: '700',
     color: '#4B5563',
   },
   permissionsContainer: {
-    backgroundColor: COLORS.ground,
+    backgroundColor: '#F8FAFC',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.soft,
+    borderColor: '#E2E8F0',
     overflow: 'hidden',
   },
   permRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    padding: 11,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.soft,
+    borderBottomColor: '#F1F5F9',
   },
   permInfo: {
     flex: 1,
     marginRight: 10,
   },
   permName: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
-    color: COLORS.ink,
+    color: '#0F172A',
   },
   permDesc: {
-    fontSize: 11,
-    color: COLORS.muted,
-    marginTop: 2,
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 1,
   },
   submitBtn: {
-    height: 52,
-    borderRadius: 14,
+    height: 48,
+    borderRadius: 13,
     backgroundColor: COLORS.brandNavy,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 10,
+    gap: 6,
+    marginTop: 8,
   },
   submitBtnText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
@@ -2737,92 +2568,90 @@ const styles = StyleSheet.create({
   /* ==================== CUSTOM FEEDBACK POPUP ==================== */
   confirmPopupCard: {
     width: '100%',
-    maxWidth: 340,
+    maxWidth: 320,
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 22,
+    padding: 22,
     alignItems: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
     elevation: 8,
   },
   confirmIconCircleDanger: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#FEE2E2',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   confirmIconCircleSuccess: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#ECFDF5',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   confirmTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    color: COLORS.ink,
+    color: '#0F172A',
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 5,
   },
   confirmSubtitle: {
-    fontSize: 13,
-    color: COLORS.muted,
+    fontSize: 12.5,
+    color: '#64748B',
     textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 20,
+    lineHeight: 17,
+    marginBottom: 18,
   },
   confirmActionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     width: '100%',
   },
   confirmCancelBtn: {
     flex: 1,
-    height: 46,
-    borderRadius: 12,
-    backgroundColor: COLORS.ground,
-    borderWidth: 1,
-    borderColor: COLORS.line,
+    height: 44,
+    borderRadius: 11,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmCancelBtnText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
-    color: COLORS.ink,
+    color: '#0F172A',
   },
   confirmDangerBtn: {
     flex: 1,
-    height: 46,
-    borderRadius: 12,
+    height: 44,
+    borderRadius: 11,
     backgroundColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmDangerBtnText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   confirmPrimaryBtn: {
     width: '100%',
-    height: 46,
-    borderRadius: 12,
+    height: 44,
+    borderRadius: 11,
     backgroundColor: COLORS.brandNavy,
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmPrimaryBtnText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
