@@ -112,6 +112,10 @@ interface AppContextType {
     role: PastorRole,
     customPermissions?: Partial<PastorPermissions>
   ) => Promise<boolean>;
+  updatePastorProfile: (
+    pastorId: string,
+    updates: Partial<Pastor>
+  ) => Promise<boolean>;
   addMemberByAdmin: (data: {
     name: string;
     phone: string;
@@ -837,6 +841,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   };
 
+  const updatePastorProfile = async (
+    pastorId: string,
+    updates: Partial<Pastor>
+  ): Promise<boolean> => {
+    let updatedTarget: Pastor | null = null;
+
+    setAllPastors((prev) =>
+      prev.map((p) => {
+        if (p.id === pastorId) {
+          updatedTarget = {
+            ...p,
+            ...updates,
+          };
+          return updatedTarget;
+        }
+        return p;
+      })
+    );
+
+    if (selectedPastor?.id === pastorId && updatedTarget) {
+      setSelectedPastor(updatedTarget);
+    }
+    if (loggedPastor?.id === pastorId && updatedTarget) {
+      setLoggedPastor(updatedTarget);
+      persistUserSession(updatedTarget, currentAssociation);
+    }
+
+    if (updatedTarget) {
+      FirestoreService.savePastor(updatedTarget).catch(console.warn);
+      return true;
+    }
+    return false;
+  };
+
   const addMemberByAdmin = async (data: {
     name: string;
     phone: string;
@@ -1110,6 +1148,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logout,
         forceLogout,
         updatePastorRoleAndPermissions,
+        updatePastorProfile,
         addMemberByAdmin,
         language,
         setLanguage,
