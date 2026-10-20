@@ -15,41 +15,108 @@ import {
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { COLORS } from '../constants/theme';
-import { PrayerRequest } from '../types';
+import { PrayerRequest, PrayerTag } from '../types';
 
 type ScopeFilter = 'all' | 'mine' | 'global' | 'urgent' | 'my-posts';
-type TagFilter = 'ALL' | 'HEALTH' | 'MINISTRY' | 'FAMILY' | 'CHURCH';
 
-const TAG_CONFIG = {
+type TagConfigItem = {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  bg: string;
+  border: string;
+  text: string;
+};
+
+const DEFAULT_TAG_CONFIG: Record<string, TagConfigItem> = {
   HEALTH: {
     label: 'Health',
-    icon: 'medical' as const,
+    icon: 'medical',
     bg: '#FFE4E6',
     border: '#FECDD3',
     text: '#BE123C',
   },
   MINISTRY: {
     label: 'Ministry',
-    icon: 'book' as const,
+    icon: 'book',
     bg: '#E0F2FE',
     border: '#BAE6FD',
     text: '#0369A1',
   },
   FAMILY: {
     label: 'Family',
-    icon: 'people' as const,
+    icon: 'people',
     bg: '#F3E8FF',
     border: '#E9D5FF',
     text: '#7E22CE',
   },
   CHURCH: {
     label: 'Church',
-    icon: 'business' as const,
+    icon: 'business',
     bg: '#FEF3C7',
     border: '#FDE68A',
     text: '#B45309',
   },
+  THANKSGIVING: {
+    label: 'Thanksgiving',
+    icon: 'sparkles',
+    bg: '#DCFCE7',
+    border: '#BBF7D0',
+    text: '#15803D',
+  },
+  MISSIONS: {
+    label: 'Missions',
+    icon: 'globe',
+    bg: '#EFF6FF',
+    border: '#BFDBFE',
+    text: '#1D4ED8',
+  },
 };
+
+const DYNAMIC_PALETTES = [
+  { bg: '#FEE2E2', border: '#FECACA', text: '#B91C1C', icon: 'flame' as const },
+  { bg: '#FEF9C3', border: '#FEF08A', text: '#A16207', icon: 'sunny' as const },
+  { bg: '#EDE9FE', border: '#DDD6FE', text: '#6D28D9', icon: 'ribbon' as const },
+  { bg: '#E0E7FF', border: '#C7D2FE', text: '#4338CA', icon: 'pricetag' as const },
+  { bg: '#CCFBF1', border: '#99F6E4', text: '#0F766E', icon: 'heart' as const },
+  { bg: '#FCE7F3', border: '#FBCFE8', text: '#BE185D', icon: 'rose' as const },
+];
+
+function getTagConfig(tag: string): TagConfigItem {
+  const normalizedKey = tag.toUpperCase().replace(/\s+/g, '_');
+  if (DEFAULT_TAG_CONFIG[normalizedKey]) {
+    return DEFAULT_TAG_CONFIG[normalizedKey];
+  }
+
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const chosen = DYNAMIC_PALETTES[Math.abs(hash) % DYNAMIC_PALETTES.length];
+
+  const label = tag
+    .split(/[\s_]+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+
+  return {
+    label,
+    icon: chosen.icon,
+    bg: chosen.bg,
+    border: chosen.border,
+    text: chosen.text,
+  };
+}
+
+const AVAILABLE_CATEGORY_ICONS: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
+  { icon: 'sparkles', label: 'Spiritual' },
+  { icon: 'flame', label: 'Revival' },
+  { icon: 'heart', label: 'Love' },
+  { icon: 'globe', label: 'Outreach' },
+  { icon: 'shield-checkmark', label: 'Deliverance' },
+  { icon: 'cash', label: 'Finance' },
+  { icon: 'school', label: 'Youth' },
+  { icon: 'sunny', label: 'Thanksgiving' },
+];
 
 const SCRIPTURE_PROMPTS = [
   'Standing in faith with you, Pastor! Jeremiah 30:17',
@@ -90,15 +157,42 @@ export const PrayerScreen: React.FC = () => {
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('all');
-  const [tagFilter, setTagFilter] = useState<TagFilter>('ALL');
+  const [tagFilter, setTagFilter] = useState<string>('ALL');
+
+  // Categories list (defaults + dynamically added)
+  const [userCategories, setUserCategories] = useState<string[]>([
+    'HEALTH',
+    'MINISTRY',
+    'FAMILY',
+    'CHURCH',
+    'THANKSGIVING',
+    'MISSIONS',
+  ]);
+
+  // Merge categories from state and any existing tags on loaded prayers
+  const allCategories = useMemo(() => {
+    const set = new Set<string>(userCategories);
+    prayers.forEach((p) => {
+      if (p.tag) {
+        set.add(p.tag.toUpperCase());
+      }
+    });
+    return Array.from(set);
+  }, [userCategories, prayers]);
 
   // Create Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [requestText, setRequestText] = useState('');
-  const [selectedTag, setSelectedTag] = useState<'HEALTH' | 'MINISTRY' | 'FAMILY' | 'CHURCH'>('HEALTH');
+  const [selectedTag, setSelectedTag] = useState<PrayerTag>('HEALTH');
   const [isGlobalScope, setIsGlobalScope] = useState(false);
   const [isUrgent, setIsUrgent] = useState(false);
   const [leadersOnly, setLeadersOnly] = useState(false);
+
+  // Add New Category Modal State
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [selectedCategoryIcon, setSelectedCategoryIcon] = useState<keyof typeof Ionicons.glyphMap>('sparkles');
+  const [addCategoryContext, setAddCategoryContext] = useState<'filter' | 'compose'>('filter');
 
   // Encourage / Comments Modal State
   const [activeCommentPrayer, setActiveCommentPrayer] = useState<PrayerRequest | null>(null);
@@ -145,13 +239,46 @@ export const PrayerScreen: React.FC = () => {
       }
 
       // 3. Category Tag Filter
-      if (tagFilter !== 'ALL' && p.tag !== tagFilter) {
+      if (tagFilter !== 'ALL' && p.tag.toUpperCase() !== tagFilter.toUpperCase()) {
         return false;
       }
 
       return true;
     });
   }, [prayers, searchQuery, scopeFilter, tagFilter, loggedPastor, currentUser]);
+
+  const handleOpenAddCategory = (context: 'filter' | 'compose') => {
+    setAddCategoryContext(context);
+    setNewCategoryName('');
+    setSelectedCategoryIcon('sparkles');
+    setShowAddCategoryModal(true);
+  };
+
+  const handleSaveNewCategory = () => {
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) {
+      Alert.alert('Category Name Required', 'Please type a name for the new category.');
+      return;
+    }
+
+    const key = trimmed.toUpperCase().replace(/\s+/g, '_');
+
+    // Register into userCategories if not exists
+    if (!userCategories.includes(key)) {
+      setUserCategories((prev) => [...prev, key]);
+    }
+
+    // Auto select based on where the user opened the modal
+    if (addCategoryContext === 'compose') {
+      setSelectedTag(key);
+    } else {
+      setTagFilter(key);
+    }
+
+    setShowAddCategoryModal(false);
+    setNewCategoryName('');
+    Alert.alert('Category Added', `"${trimmed}" is now available in categories.`);
+  };
 
   const handlePostPrayer = () => {
     if (!requestText.trim()) {
@@ -201,7 +328,6 @@ export const PrayerScreen: React.FC = () => {
     if (!commentInput.trim() || !activeCommentPrayer) return;
     addPrayerComment(activeCommentPrayer.id, commentInput.trim());
     setCommentInput('');
-    // Update local modal state immediately
     setActiveCommentPrayer((prev) => {
       if (!prev) return null;
       return {
@@ -332,41 +458,66 @@ export const PrayerScreen: React.FC = () => {
           </TouchableOpacity>
         </ScrollView>
 
-        {/* Category Tag Chips Row */}
+        {/* Category Tag Chips Row with + New Category Button */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tagChipsScroll}
         >
-          {(['ALL', 'HEALTH', 'MINISTRY', 'FAMILY', 'CHURCH'] as const).map((tagKey) => {
-            const isSelected = tagFilter === tagKey;
-            const config = tagKey !== 'ALL' ? TAG_CONFIG[tagKey] : null;
+          {/* "All Needs" Chip */}
+          <TouchableOpacity
+            style={[styles.categoryTagChip, tagFilter === 'ALL' && styles.categoryTagChipActive]}
+            onPress={() => setTagFilter('ALL')}
+            activeOpacity={0.75}
+          >
+            <Text
+              style={[
+                styles.categoryTagChipText,
+                tagFilter === 'ALL' && styles.categoryTagChipTextActive,
+              ]}
+            >
+              All Needs
+            </Text>
+          </TouchableOpacity>
+
+          {/* Dynamic Category Chips */}
+          {allCategories.map((catKey) => {
+            const isSelected = tagFilter.toUpperCase() === catKey.toUpperCase();
+            const config = getTagConfig(catKey);
 
             return (
               <TouchableOpacity
-                key={tagKey}
+                key={catKey}
                 style={[styles.categoryTagChip, isSelected && styles.categoryTagChipActive]}
-                onPress={() => setTagFilter(tagKey)}
+                onPress={() => setTagFilter(catKey)}
                 activeOpacity={0.75}
               >
-                {config && (
-                  <Ionicons
-                    name={config.icon}
-                    size={11}
-                    color={isSelected ? '#0F172A' : '#64748B'}
-                  />
-                )}
+                <Ionicons
+                  name={config.icon}
+                  size={11}
+                  color={isSelected ? '#0F172A' : config.text}
+                />
                 <Text
                   style={[
                     styles.categoryTagChipText,
                     isSelected && styles.categoryTagChipTextActive,
                   ]}
                 >
-                  {tagKey === 'ALL' ? 'All Needs' : config?.label}
+                  {config.label}
                 </Text>
               </TouchableOpacity>
             );
           })}
+
+          {/* "+ New" Category Button */}
+          <TouchableOpacity
+            style={styles.addCategoryChip}
+            onPress={() => handleOpenAddCategory('filter')}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="add" size={13} color={COLORS.brandTeal} />
+            <Text style={styles.addCategoryChipText}>New</Text>
+          </TouchableOpacity>
         </ScrollView>
 
         {/* Quick Prayer Invitation Banner Card */}
@@ -394,7 +545,7 @@ export const PrayerScreen: React.FC = () => {
         <View style={styles.feed}>
           {filteredPrayers.map((item) => {
             const palette = getAvatarPalette(item.pastorName);
-            const tagInfo = TAG_CONFIG[item.tag] || TAG_CONFIG.MINISTRY;
+            const tagInfo = getTagConfig(item.tag);
             const myPost = isMyPrayer(item);
             const commentsCount = item.comments?.length || 0;
 
@@ -619,26 +770,37 @@ export const PrayerScreen: React.FC = () => {
                   onChangeText={setRequestText}
                 />
 
-                {/* Category Tag Selector */}
-                <Text style={styles.fieldLabel}>Category</Text>
+                {/* Category Tag Selector with + New button */}
+                <View style={styles.categoryHeaderRow}>
+                  <Text style={styles.fieldLabelNoMargin}>Category</Text>
+                  <TouchableOpacity
+                    style={styles.addCategoryModalBtn}
+                    onPress={() => handleOpenAddCategory('compose')}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="add" size={13} color={COLORS.brandTeal} />
+                    <Text style={styles.addCategoryModalBtnText}>New Category</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <View style={styles.modalTagGrid}>
-                  {(['HEALTH', 'MINISTRY', 'FAMILY', 'CHURCH'] as const).map((tagKey) => {
-                    const isSelected = selectedTag === tagKey;
-                    const config = TAG_CONFIG[tagKey];
+                  {allCategories.map((catKey) => {
+                    const isSelected = selectedTag.toUpperCase() === catKey.toUpperCase();
+                    const config = getTagConfig(catKey);
 
                     return (
                       <TouchableOpacity
-                        key={tagKey}
+                        key={catKey}
                         style={[
                           styles.modalTagCard,
                           isSelected && styles.modalTagCardActive,
                         ]}
-                        onPress={() => setSelectedTag(tagKey)}
+                        onPress={() => setSelectedTag(catKey)}
                         activeOpacity={0.8}
                       >
                         <Ionicons
                           name={config.icon}
-                          size={15}
+                          size={14}
                           color={isSelected ? '#FFFFFF' : config.text}
                         />
                         <Text
@@ -646,6 +808,7 @@ export const PrayerScreen: React.FC = () => {
                             styles.modalTagCardText,
                             isSelected && styles.modalTagCardTextActive,
                           ]}
+                          numberOfLines={1}
                         >
                           {config.label}
                         </Text>
@@ -743,6 +906,113 @@ export const PrayerScreen: React.FC = () => {
                   <Text style={styles.modalSubmitBtnText}>Post Prayer Request</Text>
                 </TouchableOpacity>
               </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Add New Category Interactive Modal */}
+      <Modal
+        visible={showAddCategoryModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddCategoryModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.categoryBackdrop}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              onPress={() => setShowAddCategoryModal(false)}
+            />
+            <View style={styles.categoryCardModal}>
+              <View style={styles.categoryModalHeader}>
+                <View style={styles.categoryModalTitleWrap}>
+                  <View style={styles.categoryIconBadge}>
+                    <Ionicons name="pricetags" size={18} color={COLORS.brandTeal} />
+                  </View>
+                  <View>
+                    <Text style={styles.categoryModalTitle}>Add New Category</Text>
+                    <Text style={styles.categoryModalSub}>
+                      Create a custom category for prayer needs
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.modalCloseBtn}
+                  onPress={() => setShowAddCategoryModal(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close" size={20} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Name Input */}
+              <Text style={styles.fieldLabel}>Category Name *</Text>
+              <TextInput
+                style={styles.categoryNameInput}
+                placeholder="e.g. Youth, Deliverance, Outreach, Finances..."
+                placeholderTextColor="#94A3B8"
+                value={newCategoryName}
+                onChangeText={setNewCategoryName}
+                autoFocus
+              />
+
+              {/* Icon Picker Chips */}
+              <Text style={styles.fieldLabel}>Choose an Icon</Text>
+              <View style={styles.iconChipsGrid}>
+                {AVAILABLE_CATEGORY_ICONS.map((item) => {
+                  const isChosen = selectedCategoryIcon === item.icon;
+                  return (
+                    <TouchableOpacity
+                      key={item.icon}
+                      style={[
+                        styles.iconChipOption,
+                        isChosen && styles.iconChipOptionActive,
+                      ]}
+                      onPress={() => setSelectedCategoryIcon(item.icon)}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons
+                        name={item.icon}
+                        size={16}
+                        color={isChosen ? '#FFFFFF' : '#475569'}
+                      />
+                      <Text
+                        style={[
+                          styles.iconChipOptionText,
+                          isChosen && styles.iconChipOptionTextActive,
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.categoryModalActions}>
+                <TouchableOpacity
+                  style={styles.categoryCancelBtn}
+                  onPress={() => setShowAddCategoryModal(false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.categoryCancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.categoryConfirmBtn}
+                  onPress={handleSaveNewCategory}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+                  <Text style={styles.categoryConfirmBtnText}>Add Category</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -998,11 +1268,11 @@ const styles = StyleSheet.create({
   categoryTagChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -1018,6 +1288,22 @@ const styles = StyleSheet.create({
   categoryTagChipTextActive: {
     color: '#0F172A',
     fontWeight: '700',
+  },
+  addCategoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#E6F7F7',
+    borderWidth: 1,
+    borderColor: '#B2EBF2',
+  },
+  addCategoryChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.brandTeal,
   },
 
   /* Invitation Card */
@@ -1359,6 +1645,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 10,
   },
+  fieldLabelNoMargin: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
   modalTextArea: {
     minHeight: 85,
     borderWidth: 1,
@@ -1372,17 +1663,39 @@ const styles = StyleSheet.create({
   },
 
   /* Modal Tag Grid */
+  categoryHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  addCategoryModalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: '#E6F7F7',
+  },
+  addCategoryModalBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.brandTeal,
+  },
   modalTagGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   modalTagCard: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 10,
+    gap: 5,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -1393,7 +1706,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.brandNavy,
   },
   modalTagCardText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: '#475569',
   },
@@ -1489,6 +1802,131 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+
+  /* Add Category Modal */
+  categoryBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  categoryCardModal: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 20,
+    width: '100%',
+    maxWidth: 380,
+    gap: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  categoryModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  categoryModalTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  categoryIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E6F7F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  categoryModalSub: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  categoryNameInput: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: '#0F172A',
+    backgroundColor: '#F8FAFC',
+  },
+  iconChipsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  iconChipOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  iconChipOptionActive: {
+    backgroundColor: COLORS.brandNavy,
+    borderColor: COLORS.brandNavy,
+  },
+  iconChipOptionText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  iconChipOptionTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  categoryModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  categoryCancelBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryCancelBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  categoryConfirmBtn: {
+    flex: 1.4,
+    flexDirection: 'row',
+    gap: 6,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: COLORS.brandTeal,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryConfirmBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 
   /* Comments Modal Styles */

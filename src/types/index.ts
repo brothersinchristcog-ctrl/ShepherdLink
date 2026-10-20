@@ -148,13 +148,22 @@ export interface PrayerComment {
   timeAgo: string;
 }
 
+export type PrayerTag =
+  | 'HEALTH'
+  | 'MINISTRY'
+  | 'FAMILY'
+  | 'CHURCH'
+  | 'THANKSGIVING'
+  | 'MISSIONS'
+  | (string & {});
+
 export interface PrayerRequest {
   id: string;
   associationId?: string;
   pastorName: string;
   mandal: string;
   timeAgo: string;
-  tag: 'HEALTH' | 'MINISTRY' | 'FAMILY' | 'CHURCH';
+  tag: PrayerTag;
   text: string;
   isGlobal: boolean;
   leadersOnly: boolean;

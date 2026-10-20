@@ -157,7 +157,7 @@ export const INITIAL_PRAYERS: PrayerRequest[] = [
     pastorName: 'Pastor S. Samuel',
     mandal: 'Tenali Mandal',
     timeAgo: '2 days ago',
-    tag: 'FAMILY',
+    tag: 'THANKSGIVING',
     text: 'Thanksgiving to our Heavenly Father! Sister Grace delivered a healthy baby girl. Please pray for mother and child’s continued strength and divine peace in their home.',
     isGlobal: false,
     leadersOnly: false,

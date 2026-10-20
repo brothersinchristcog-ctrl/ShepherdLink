@@ -9,6 +9,7 @@ import {
   AssociationEvent,
   PrayerRequest,
   PrayerComment,
+  PrayerTag,
   Notice,
   DonationRecord,
   PastorRole,
@@ -147,7 +148,7 @@ interface AppContextType {
   togglePrayer: (prayerId: string) => void;
   addPrayer: (
     text: string,
-    tag: 'HEALTH' | 'MINISTRY' | 'FAMILY' | 'CHURCH',
+    tag: PrayerTag,
     leadersOnly: boolean,
     isGlobal?: boolean,
     isUrgent?: boolean
@@ -982,7 +983,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addPrayer = (
     text: string,
-    tag: 'HEALTH' | 'MINISTRY' | 'FAMILY' | 'CHURCH',
+    tag: PrayerTag,
     leadersOnly: boolean,
     isGlobal: boolean = false,
     isUrgent: boolean = false
