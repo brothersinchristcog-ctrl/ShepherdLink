@@ -401,18 +401,24 @@ export const ProfileScreen: React.FC = () => {
   const handleSavePermissions = async () => {
     setIsSubmittingRole(true);
     try {
-      await updatePastorRoleAndPermissions(
-        displayPastor.id,
+      const pastorIdToUpdate = displayPastor?.id || loggedPastor?.id || 'me';
+      const success = await updatePastorRoleAndPermissions(
+        pastorIdToUpdate,
         targetRole,
         targetPermissions
       );
-      setShowManageModal(false);
-      setCustomAlert({
-        visible: true,
-        type: 'success',
-        title: 'Permissions Updated',
-        message: `Updated role & access permissions for ${displayPastor.name}.`,
-      });
+
+      if (success) {
+        setShowManageModal(false);
+        setCustomAlert({
+          visible: true,
+          type: 'success',
+          title: 'Permissions Updated',
+          message: `Updated role & access permissions for ${displayPastor.name}.`,
+        });
+      } else {
+        throw new Error('Update returned false');
+      }
     } catch {
       setCustomAlert({
         visible: true,

@@ -810,69 +810,186 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...(customPermissions || {}),
     };
 
-    let updatedTarget: Pastor | null = null;
+    // Find target pastor synchronously across allPastors, loggedPastor, selectedPastor
+    let target = allPastors.find((p) => p.id === pastorId);
+    if (!target) {
+      if (loggedPastor && (loggedPastor.id === pastorId || pastorId === 'me')) {
+        target = loggedPastor;
+      } else if (selectedPastor && (selectedPastor.id === pastorId || pastorId === 'me')) {
+        target = selectedPastor;
+      }
+    }
 
-    setAllPastors((prev) =>
-      prev.map((p) => {
-        if (p.id === pastorId) {
-          updatedTarget = {
-            ...p,
-            role,
-            isAdmin: adminStatus,
-            permissions: finalPermissions,
-          };
-          return updatedTarget;
-        }
-        return p;
-      })
-    );
+    // Fallback if target still null but it refers to the logged user
+    if (!target && (pastorId === 'me' || (loggedPastor && loggedPastor.id === pastorId))) {
+      target = {
+        id: loggedPastor?.id || `pastor-${Date.now()}`,
+        name: currentUser.name || 'Pastor',
+        role,
+        isAdmin: adminStatus,
+        permissions: finalPermissions,
+        associationId: currentAssociation?.id || 'assoc-1',
+        associationName: currentAssociation?.name || '',
+        associationCode: currentAssociation?.code || '',
+        isVerified: true,
+        churchName: `${currentAssociation?.name || ''} Fellowship`,
+        village: currentAssociation?.village || currentAssociation?.district || '',
+        mandal: currentAssociation?.mandal || currentAssociation?.district || '',
+        district: currentAssociation?.district || '',
+        state: currentAssociation?.state || '',
+        phone: currentUser.phone || '',
+        churchAddress: `${currentAssociation?.district || ''}, ${currentAssociation?.state || ''}`,
+        denomination: 'Independent',
+        ordainedYear: '2020',
+        ministry: 'Pastoral Ministry',
+        languages: ['Telugu', 'English'],
+      };
+    }
 
-    if (selectedPastor?.id === pastorId && updatedTarget) {
+    if (!target) {
+      return false;
+    }
+
+    const updatedTarget: Pastor = {
+      ...target,
+      role,
+      isAdmin: adminStatus,
+      permissions: finalPermissions,
+    };
+
+    const targetId = updatedTarget.id;
+
+    // 1. Synchronously update allPastors list
+    setAllPastors((prev) => {
+      const exists = prev.some(
+        (p) => p.id === targetId || (pastorId === 'me' && loggedPastor && p.id === loggedPastor.id)
+      );
+      if (exists) {
+        return prev.map((p) => {
+          if (p.id === targetId || (pastorId === 'me' && loggedPastor && p.id === loggedPastor.id)) {
+            return updatedTarget;
+          }
+          return p;
+        });
+      }
+      return [updatedTarget, ...prev];
+    });
+
+    // 2. Synchronously update selectedPastor if matching
+    if (
+      selectedPastor &&
+      (selectedPastor.id === targetId ||
+        selectedPastor.id === pastorId ||
+        (pastorId === 'me' && loggedPastor && selectedPastor.id === loggedPastor.id))
+    ) {
       setSelectedPastor(updatedTarget);
     }
-    if (loggedPastor?.id === pastorId && updatedTarget) {
+
+    // 3. Synchronously update loggedPastor & persist session if it's the current user
+    const isLoggedUser =
+      pastorId === 'me' ||
+      (loggedPastor && (loggedPastor.id === targetId || loggedPastor.id === pastorId));
+
+    if (isLoggedUser) {
       setLoggedPastor(updatedTarget);
+      persistUserSession(updatedTarget, currentAssociation);
     }
 
-    if (updatedTarget) {
-      FirestoreService.savePastor(updatedTarget).catch(console.warn);
-      return true;
-    }
-    return false;
+    // 4. Save to Firestore remote database
+    FirestoreService.savePastor(updatedTarget).catch(console.warn);
+
+    return true;
   };
 
   const updatePastorProfile = async (
     pastorId: string,
     updates: Partial<Pastor>
   ): Promise<boolean> => {
-    let updatedTarget: Pastor | null = null;
+    let target = allPastors.find((p) => p.id === pastorId);
+    if (!target) {
+      if (loggedPastor && (loggedPastor.id === pastorId || pastorId === 'me')) {
+        target = loggedPastor;
+      } else if (selectedPastor && (selectedPastor.id === pastorId || pastorId === 'me')) {
+        target = selectedPastor;
+      }
+    }
 
-    setAllPastors((prev) =>
-      prev.map((p) => {
-        if (p.id === pastorId) {
-          updatedTarget = {
-            ...p,
-            ...updates,
-          };
-          return updatedTarget;
-        }
-        return p;
-      })
-    );
+    if (!target && (pastorId === 'me' || (loggedPastor && loggedPastor.id === pastorId))) {
+      target = {
+        id: loggedPastor?.id || `pastor-${Date.now()}`,
+        name: currentUser.name || 'Pastor',
+        role: currentUser.role,
+        isAdmin: currentUser.isAdmin,
+        permissions: currentUser.permissions,
+        associationId: currentAssociation?.id || 'assoc-1',
+        associationName: currentAssociation?.name || '',
+        associationCode: currentAssociation?.code || '',
+        isVerified: true,
+        churchName: `${currentAssociation?.name || ''} Fellowship`,
+        village: currentAssociation?.village || currentAssociation?.district || '',
+        mandal: currentAssociation?.mandal || currentAssociation?.district || '',
+        district: currentAssociation?.district || '',
+        state: currentAssociation?.state || '',
+        phone: currentUser.phone || '',
+        churchAddress: `${currentAssociation?.district || ''}, ${currentAssociation?.state || ''}`,
+        denomination: 'Independent',
+        ordainedYear: '2020',
+        ministry: 'Pastoral Ministry',
+        languages: ['Telugu', 'English'],
+      };
+    }
 
-    if (selectedPastor?.id === pastorId && updatedTarget) {
+    if (!target) {
+      return false;
+    }
+
+    const updatedTarget: Pastor = {
+      ...target,
+      ...updates,
+    };
+
+    const targetId = updatedTarget.id;
+
+    // 1. Synchronously update allPastors list
+    setAllPastors((prev) => {
+      const exists = prev.some(
+        (p) => p.id === targetId || (pastorId === 'me' && loggedPastor && p.id === loggedPastor.id)
+      );
+      if (exists) {
+        return prev.map((p) => {
+          if (p.id === targetId || (pastorId === 'me' && loggedPastor && p.id === loggedPastor.id)) {
+            return updatedTarget;
+          }
+          return p;
+        });
+      }
+      return [updatedTarget, ...prev];
+    });
+
+    // 2. Synchronously update selectedPastor if matching
+    if (
+      selectedPastor &&
+      (selectedPastor.id === targetId ||
+        selectedPastor.id === pastorId ||
+        (pastorId === 'me' && loggedPastor && selectedPastor.id === loggedPastor.id))
+    ) {
       setSelectedPastor(updatedTarget);
     }
-    if (loggedPastor?.id === pastorId && updatedTarget) {
+
+    // 3. Synchronously update loggedPastor & persist session if it's the current user
+    const isLoggedUser =
+      pastorId === 'me' ||
+      (loggedPastor && (loggedPastor.id === targetId || loggedPastor.id === pastorId));
+
+    if (isLoggedUser) {
       setLoggedPastor(updatedTarget);
       persistUserSession(updatedTarget, currentAssociation);
     }
 
-    if (updatedTarget) {
-      FirestoreService.savePastor(updatedTarget).catch(console.warn);
-      return true;
-    }
-    return false;
+    // 4. Save to Firestore remote database
+    FirestoreService.savePastor(updatedTarget).catch(console.warn);
+
+    return true;
   };
 
   const addMemberByAdmin = async (data: {
