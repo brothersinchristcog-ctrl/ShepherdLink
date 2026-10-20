@@ -10,6 +10,7 @@ import {
   Share,
   Platform,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
@@ -17,6 +18,47 @@ import { AssociationEvent, isPastorAdmin } from '../types';
 import { COLORS } from '../constants/theme';
 import { EventQRCodeModal } from '../components/EventQRCodeModal';
 import { EventQRScannerModal } from '../components/EventQRScannerModal';
+
+const MONTHS_MAP: Record<string, number> = {
+  JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
+  JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11,
+};
+
+// Helper: Calculate if event is Today, Tomorrow, or neither
+export const getRelativeDateLabel = (item: AssociationEvent): 'Today' | 'Tomorrow' | null => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const currentDate = now.getDate();
+
+  if (item.startDate) {
+    const parts = item.startDate.split('-');
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      const todayMidnight = new Date(currentYear, currentMonth, currentDate).getTime();
+      const eventMidnight = new Date(y, m, d).getTime();
+      const diffDays = Math.round((eventMidnight - todayMidnight) / (1000 * 60 * 60 * 24));
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Tomorrow';
+    }
+  }
+
+  const mIndex = MONTHS_MAP[item.month?.toUpperCase()?.trim()];
+  if (mIndex !== undefined) {
+    const d = parseInt(item.day, 10);
+    if (!isNaN(d)) {
+      const todayMidnight = new Date(currentYear, currentMonth, currentDate).getTime();
+      const eventMidnight = new Date(currentYear, mIndex, d).getTime();
+      const diffDays = Math.round((eventMidnight - todayMidnight) / (1000 * 60 * 60 * 24));
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Tomorrow';
+    }
+  }
+
+  return null;
+};
 
 type ScopeFilterType = 'all' | 'private' | 'public' | 'attending';
 
@@ -244,6 +286,7 @@ export const EventsScreen: React.FC = () => {
             const isGoing = item.rsvp === 'going';
             const isMaybe = item.rsvp === 'maybe';
             const isPublic = item.scope === 'public';
+            const relativeDate = getRelativeDateLabel(item);
 
             return (
               <TouchableOpacity
@@ -252,6 +295,17 @@ export const EventsScreen: React.FC = () => {
                 activeOpacity={0.92}
                 onPress={() => setSelectedEventDetails(item)}
               >
+                {/* Event Thumbnail Banner (if present) */}
+                {item.thumbnailUrl && (
+                  <View style={styles.cardThumbnailWrapper}>
+                    <Image
+                      source={{ uri: item.thumbnailUrl }}
+                      style={styles.cardThumbnailImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                )}
+
                 {/* Top Badge & Admin Action Row */}
                 <View style={styles.cardHeaderRow}>
                   <View style={styles.badgesLine}>
@@ -265,6 +319,30 @@ export const EventsScreen: React.FC = () => {
                         {isPublic ? 'Public Event' : 'Association Only'}
                       </Text>
                     </View>
+
+                    {/* Today / Tomorrow Light Text Badge */}
+                    {relativeDate && (
+                      <View
+                        style={[
+                          styles.relativeDayBadge,
+                          relativeDate === 'Today' ? styles.todayBadge : styles.tomorrowBadge,
+                        ]}
+                      >
+                        <Ionicons
+                          name={relativeDate === 'Today' ? 'sparkles' : 'time-outline'}
+                          size={10}
+                          color={relativeDate === 'Today' ? '#0284C7' : '#7C3AED'}
+                        />
+                        <Text
+                          style={[
+                            styles.relativeDayText,
+                            relativeDate === 'Today' ? styles.todayText : styles.tomorrowText,
+                          ]}
+                        >
+                          {relativeDate}
+                        </Text>
+                      </View>
+                    )}
 
                     {item.trackAttendance && (
                       <View style={styles.attendancePill}>
@@ -307,6 +385,16 @@ export const EventsScreen: React.FC = () => {
                     </View>
                     <View style={styles.dateBadgeBody}>
                       <Text style={styles.dateBadgeDay}>{item.day}</Text>
+                      {relativeDate && (
+                        <Text
+                          style={[
+                            styles.dateBadgeRelativeLightText,
+                            relativeDate === 'Today' ? styles.todayLightText : styles.tomorrowLightText,
+                          ]}
+                        >
+                          {relativeDate}
+                        </Text>
+                      )}
                     </View>
                   </View>
 
@@ -488,6 +576,17 @@ export const EventsScreen: React.FC = () => {
               {/* Modal Drag Handle */}
               <View style={styles.modalHandle} />
 
+              {/* Event Thumbnail Banner in Modal (if present) */}
+              {selectedEventDetails.thumbnailUrl && (
+                <View style={styles.modalBannerWrapper}>
+                  <Image
+                    source={{ uri: selectedEventDetails.thumbnailUrl }}
+                    style={styles.modalBannerImage}
+                    resizeMode="cover"
+                  />
+                </View>
+              )}
+
               {/* Modal Header */}
               <View style={styles.modalHeaderRow}>
                 <View style={styles.modalHeaderBadgeRow}>
@@ -510,6 +609,41 @@ export const EventsScreen: React.FC = () => {
                       {selectedEventDetails.scope === 'public' ? 'Public' : 'Association'}
                     </Text>
                   </View>
+
+                  {getRelativeDateLabel(selectedEventDetails) && (
+                    <View
+                      style={[
+                        styles.relativeDayBadge,
+                        getRelativeDateLabel(selectedEventDetails) === 'Today'
+                          ? styles.todayBadge
+                          : styles.tomorrowBadge,
+                      ]}
+                    >
+                      <Ionicons
+                        name={
+                          getRelativeDateLabel(selectedEventDetails) === 'Today'
+                            ? 'sparkles'
+                            : 'time-outline'
+                        }
+                        size={10}
+                        color={
+                          getRelativeDateLabel(selectedEventDetails) === 'Today'
+                            ? '#0284C7'
+                            : '#7C3AED'
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.relativeDayText,
+                          getRelativeDateLabel(selectedEventDetails) === 'Today'
+                            ? styles.todayText
+                            : styles.tomorrowText,
+                        ]}
+                      >
+                        {getRelativeDateLabel(selectedEventDetails)}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 <TouchableOpacity
@@ -845,13 +979,79 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 2,
+    overflow: 'hidden',
+  },
+  cardThumbnailWrapper: {
+    width: '100%',
+    height: 125,
+    marginTop: -14,
+    marginHorizontal: -14,
+    marginBottom: 2,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    overflow: 'hidden',
+  },
+  cardThumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  modalBannerWrapper: {
+    width: '100%',
+    height: 140,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  modalBannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  relativeDayBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  todayBadge: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#BAE6FD',
+  },
+  tomorrowBadge: {
+    backgroundColor: '#F5F3FF',
+    borderColor: '#DDD6FE',
+  },
+  relativeDayText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  todayText: {
+    color: '#0284C7',
+  },
+  tomorrowText: {
+    color: '#7C3AED',
+  },
+  dateBadgeRelativeLightText: {
+    fontSize: 8,
+    fontWeight: '800',
+    marginTop: 1,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  todayLightText: {
+    color: '#0284C7',
+  },
+  tomorrowLightText: {
+    color: '#7C3AED',
   },
   cardContentRow: {
     flexDirection: 'row',
     gap: 12,
   },
   dateBadge: {
-    width: 52,
+    width: 56,
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: '#F8FAFC',

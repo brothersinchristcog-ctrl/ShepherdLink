@@ -9,12 +9,22 @@ import {
   Alert,
   Modal,
   Platform,
+  Image,
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { EventScope, AssociationEvent, isPastorAdmin } from '../types';
 import { COLORS } from '../constants/theme';
 import { EventQRCodeModal } from '../components/EventQRCodeModal';
+
+// Safely load expo-image-picker to avoid fatal crashes in dev clients without recompiled native binary
+let SafeImagePicker: typeof import('expo-image-picker') | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  SafeImagePicker = require('expo-image-picker');
+} catch {
+  SafeImagePicker = null;
+}
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -94,6 +104,7 @@ export const CreateEventScreen: React.FC = () => {
   const [venue, setVenue] = useState('');
   const [visibility, setVisibility] = useState<EventScope>('public');
   const [trackAttendance, setTrackAttendance] = useState(true);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
 
   // Two Date Pickers: Start Date and End Date
   const [startDate, setStartDate] = useState('2026-11-20');
@@ -102,6 +113,86 @@ export const CreateEventScreen: React.FC = () => {
   // Two Time Pickers: Start Time and End Time
   const [startTime, setStartTime] = useState('10:00 AM');
   const [endTime, setEndTime] = useState('01:30 PM');
+
+  const handlePickThumbnail = async () => {
+    if (!SafeImagePicker) {
+      Alert.alert('Module Not Available', 'Image picker is not available on this device.');
+      return;
+    }
+
+    try {
+      const permission = await SafeImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Permission Needed',
+          'Please allow access to your photo library to select an event thumbnail banner.'
+        );
+        return;
+      }
+
+      const result = await SafeImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const finalUri = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+        setThumbnailUrl(finalUri);
+      }
+    } catch {
+      Alert.alert('Error', 'Unable to pick image from gallery.');
+    }
+  };
+
+  const handleTakeThumbnailPhoto = async () => {
+    if (!SafeImagePicker) {
+      Alert.alert('Module Not Available', 'Camera is not available on this device.');
+      return;
+    }
+
+    try {
+      const permission = await SafeImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Camera Permission Needed', 'Please allow camera access to take a photo.');
+        return;
+      }
+
+      const result = await SafeImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const finalUri = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+        setThumbnailUrl(finalUri);
+      }
+    } catch {
+      Alert.alert('Error', 'Unable to capture photo.');
+    }
+  };
+
+  const handleChooseThumbnailOptions = () => {
+    Alert.alert(
+      'Event Thumbnail / Banner',
+      'Select an option to add an event thumbnail:',
+      [
+        { text: 'Choose from Gallery', onPress: handlePickThumbnail },
+        { text: 'Take Photo', onPress: handleTakeThumbnailPhoto },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
 
   // Picker Modals state: 'startDate' | 'endDate' | 'startTime' | 'endTime' | null
   const [activePicker, setActivePicker] = useState<
@@ -275,6 +366,7 @@ export const CreateEventScreen: React.FC = () => {
       endDate,
       startTime,
       endTime,
+      thumbnailUrl: thumbnailUrl || undefined,
     };
 
     addEvent(newEventData);
@@ -334,6 +426,56 @@ export const CreateEventScreen: React.FC = () => {
             value={eventName}
             onChangeText={setEventName}
           />
+        </View>
+
+        {/* Event Thumbnail Banner Upload */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <Ionicons name="image" size={18} color={COLORS.brandTeal} />
+            <Text style={styles.sectionHeaderTitle}>Event Banner / Thumbnail</Text>
+            <View style={styles.optionalBadge}>
+              <Text style={styles.optionalBadgeText}>Optional</Text>
+            </View>
+          </View>
+
+          {thumbnailUrl ? (
+            <View style={styles.thumbnailPreviewContainer}>
+              <Image source={{ uri: thumbnailUrl }} style={styles.thumbnailPreviewImage} resizeMode="cover" />
+              <View style={styles.thumbnailActionsRow}>
+                <TouchableOpacity
+                  style={styles.thumbnailChangeBtn}
+                  onPress={handleChooseThumbnailOptions}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="camera-reverse-outline" size={15} color={COLORS.brandNavy} />
+                  <Text style={styles.thumbnailChangeBtnText}>Change Photo</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.thumbnailRemoveBtn}
+                  onPress={() => setThumbnailUrl(null)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="trash-outline" size={15} color="#EF4444" />
+                  <Text style={styles.thumbnailRemoveBtnText}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.thumbnailUploadBox}
+              onPress={handleChooseThumbnailOptions}
+              activeOpacity={0.8}
+            >
+              <View style={styles.thumbnailUploadIconCircle}>
+                <Ionicons name="cloud-upload-outline" size={24} color={COLORS.brandTeal} />
+              </View>
+              <Text style={styles.thumbnailUploadTitle}>Upload Event Thumbnail</Text>
+              <Text style={styles.thumbnailUploadSub}>
+                Tap to pick a photo from gallery or take a picture (16:9 banner)
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Section: Date Pickers (Start Date & End Date) */}
@@ -1522,5 +1664,98 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  optionalBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    marginLeft: 'auto',
+  },
+  optionalBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  thumbnailUploadBox: {
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  thumbnailUploadIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E6F7F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  thumbnailUploadTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  thumbnailUploadSub: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    maxWidth: 260,
+  },
+  thumbnailPreviewContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  thumbnailPreviewImage: {
+    width: '100%',
+    height: 160,
+    backgroundColor: '#0F172A',
+  },
+  thumbnailActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 10,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  thumbnailChangeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+  },
+  thumbnailChangeBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.brandNavy,
+  },
+  thumbnailRemoveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#FEF2F2',
+  },
+  thumbnailRemoveBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EF4444',
   },
 });

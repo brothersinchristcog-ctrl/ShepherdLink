@@ -138,6 +138,7 @@ export interface AssociationEvent {
   endDate?: string;
   startTime?: string;
   endTime?: string;
+  thumbnailUrl?: string;
 }
 
 export interface PrayerRequest {
