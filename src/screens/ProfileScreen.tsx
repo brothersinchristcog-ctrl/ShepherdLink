@@ -798,15 +798,15 @@ export const ProfileScreen: React.FC = () => {
           </Text>
         </View>
 
-        {/* The ONLY Sign Out Button on the Screen */}
+        {/* The ONLY Log Out Button on the Screen */}
         {isMyProfile && (
           <TouchableOpacity
             style={styles.bottomSignOutBtn}
             onPress={() => setShowSignOutConfirm(true)}
             activeOpacity={0.8}
           >
-            <Feather name="log-out" size={16} color="#DC2626" />
-            <Text style={styles.bottomSignOutText}>Sign Out of ShepherdLink</Text>
+            <Feather name="log-out" size={15} color="#DC2626" />
+            <Text style={styles.bottomSignOutText}>Log Out</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -1471,7 +1471,7 @@ export const ProfileScreen: React.FC = () => {
               <Feather name="log-out" size={24} color="#DC2626" />
             </View>
 
-            <Text style={styles.confirmTitle}>Sign Out of ShepherdLink?</Text>
+            <Text style={styles.confirmTitle}>Log Out of ShepherdLink?</Text>
             <Text style={styles.confirmSubtitle}>
               You are currently signed in as <Text style={{ fontWeight: '700' }}>{displayPastor.name}</Text>. You can log back in at any time.
             </Text>
@@ -1493,7 +1493,7 @@ export const ProfileScreen: React.FC = () => {
                 }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.confirmDangerBtnText}>Sign Out</Text>
+                <Text style={styles.confirmDangerBtnText}>Log Out</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1957,23 +1957,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  /* Bottom Sign Out (ONLY Sign Out on the page) */
+  /* Bottom Log Out (Centered Soft Rose Pill) */
   bottomSignOutBtn: {
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#FEF2F2',
-    paddingVertical: 13,
-    borderRadius: 14,
+    gap: 8,
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 32,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: '#FECACA',
-    marginTop: 4,
+    marginTop: 8,
+    marginBottom: 8,
   },
   bottomSignOutText: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '700',
     color: '#DC2626',
+    letterSpacing: -0.1,
   },
 
   /* ==================== MODALS COMMON ==================== */
