@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -38,6 +38,33 @@ interface CameraLiveViewProps {
 const CameraLiveView: React.FC<CameraLiveViewProps> = ({ onScan, scanned }) => {
   const [permission, requestPermission] = useNativeCameraPermissions();
 
+  useEffect(() => {
+    if (NativeCameraView?.onModernBarcodeScanned) {
+      try {
+        const sub = NativeCameraView.onModernBarcodeScanned((event: { data?: string }) => {
+          if (event?.data) {
+            onScan(event.data);
+          }
+        });
+        return () => {
+          sub?.remove?.();
+        };
+      } catch {
+        // Safe fallback
+      }
+    }
+  }, [onScan]);
+
+  const handleLaunchGoogleScanner = async () => {
+    try {
+      if (NativeCameraView?.launchScanner) {
+        await NativeCameraView.launchScanner({ barcodeTypes: ['qr'] });
+      }
+    } catch (err) {
+      console.warn('Native Google Scanner not available:', err);
+    }
+  };
+
   if (!permission?.granted) {
     return (
       <View style={styles.permissionBox}>
@@ -59,23 +86,40 @@ const CameraLiveView: React.FC<CameraLiveViewProps> = ({ onScan, scanned }) => {
   }
 
   return (
-    <View style={styles.cameraBox}>
-      <NativeCameraView
-        style={StyleSheet.absoluteFill}
-        facing="back"
-        barcodeScannerSettings={{
-          barcodeTypes: ['qr'],
-        }}
-        onBarcodeScanned={scanned ? undefined : (res: { data: string }) => onScan(res.data)}
-      />
-      {/* Reticle Overlay on Camera */}
-      <View style={styles.overlayFrame}>
-        <View style={[styles.cornerReticle, styles.cornerTL]} />
-        <View style={[styles.cornerReticle, styles.cornerTR]} />
-        <View style={[styles.cornerReticle, styles.cornerBL]} />
-        <View style={[styles.cornerReticle, styles.cornerBR]} />
-        <View style={styles.laserLine} />
+    <View style={styles.cameraContainer}>
+      <View style={styles.cameraBox}>
+        <NativeCameraView
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          autofocus="on"
+          barcodeScannerSettings={{
+            barcodeTypes: ['qr', 'code128', 'ean13'],
+          }}
+          onBarcodeScanned={scanned ? undefined : (res: { data?: string }) => {
+            if (res?.data) {
+              onScan(res.data);
+            }
+          }}
+        />
+        {/* Reticle Overlay on Camera */}
+        <View style={styles.overlayFrame}>
+          <View style={[styles.cornerReticle, styles.cornerTL]} />
+          <View style={[styles.cornerReticle, styles.cornerTR]} />
+          <View style={[styles.cornerReticle, styles.cornerBL]} />
+          <View style={[styles.cornerReticle, styles.cornerBR]} />
+          <View style={styles.laserLine} />
+        </View>
       </View>
+
+      {/* Google Code Scanner Fast Launcher */}
+      <TouchableOpacity
+        style={styles.launchGoogleScannerBtn}
+        onPress={handleLaunchGoogleScanner}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="scan-circle" size={18} color={COLORS.brandNavy} />
+        <Text style={styles.launchGoogleScannerText}>Open Fullscreen Google Scanner</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -107,10 +151,23 @@ export const EventQRScannerModal: React.FC<EventQRScannerModalProps> = ({
   if (!event || !visible) return null;
 
   const handleScanCode = (code: string) => {
-    if (scanned) return;
+    if (scanned || !code) return;
     setScanned(true);
     setScannedData(code);
-    onRecordAttendance(event.id, loggedPastor?.id);
+
+    let targetPastorId = loggedPastor?.id;
+    try {
+      const parsed = JSON.parse(code);
+      if (parsed.pastorId) {
+        targetPastorId = parsed.pastorId;
+      }
+    } catch {
+      if (code.startsWith('p-')) {
+        targetPastorId = code;
+      }
+    }
+
+    onRecordAttendance(event.id, targetPastorId);
   };
 
   const handleManualScanSimulation = () => {
@@ -273,10 +330,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
+    width: '100%',
   },
   viewfinderFrame: {
-    width: 250,
-    height: 220,
+    width: '100%',
+    height: 250,
     backgroundColor: '#0F172A',
     borderRadius: 16,
     alignItems: 'center',
@@ -286,12 +344,18 @@ const styles = StyleSheet.create({
   },
   viewfinderHint: {
     color: '#94A3B8',
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 8,
+    fontWeight: '500',
+  },
+  cameraContainer: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 10,
   },
   cameraBox: {
-    width: 250,
-    height: 230,
+    width: '100%',
+    height: 260,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#0F172A',
@@ -300,11 +364,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   overlayFrame: {
-    width: 190,
-    height: 180,
+    width: 210,
+    height: 210,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  launchGoogleScannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  launchGoogleScannerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.brandNavy,
   },
   cornerReticle: {
     position: 'absolute',

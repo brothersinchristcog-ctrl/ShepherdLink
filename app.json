@@ -18,10 +18,19 @@
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "plugins": [
       "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow ShepherdLink to access your camera to scan event QR codes."
+        }
+      ],
       [
         "expo-splash-screen",
         {

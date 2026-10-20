@@ -11,7 +11,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { AssociationEvent, isPastorAdmin } from '../types';
 import { COLORS } from '../constants/theme';
@@ -23,6 +23,7 @@ type ScopeFilterType = 'all' | 'private' | 'public' | 'attending';
 export const EventsScreen: React.FC = () => {
   const {
     events,
+    pastors,
     toggleRSVP,
     selectEventForAttendance,
     navigateTo,
@@ -251,6 +252,52 @@ export const EventsScreen: React.FC = () => {
                 activeOpacity={0.92}
                 onPress={() => setSelectedEventDetails(item)}
               >
+                {/* Top Badge & Admin Action Row */}
+                <View style={styles.cardHeaderRow}>
+                  <View style={styles.badgesLine}>
+                    <View style={[styles.scopeTag, isPublic ? styles.scopeTagPublic : styles.scopeTagPrivate]}>
+                      <Ionicons
+                        name={isPublic ? 'globe-outline' : 'shield-checkmark-outline'}
+                        size={11}
+                        color={isPublic ? '#92400E' : COLORS.brandNavy}
+                      />
+                      <Text style={[styles.scopeTagText, isPublic ? styles.scopeTagTextPublic : styles.scopeTagTextPrivate]}>
+                        {isPublic ? 'Public Event' : 'Association Only'}
+                      </Text>
+                    </View>
+
+                    {item.trackAttendance && (
+                      <View style={styles.attendancePill}>
+                        <Ionicons name="qr-code-outline" size={10} color={COLORS.brandTeal} />
+                        <Text style={styles.attendancePillText}>Check-in Active</Text>
+                      </View>
+                    )}
+
+                    {item.rsvp && (
+                      <View style={[styles.rsvpMiniBadge, isGoing ? styles.rsvpMiniGoing : styles.rsvpMiniMaybe]}>
+                        <Text style={[styles.rsvpMiniText, isGoing ? styles.rsvpMiniTextGoing : styles.rsvpMiniTextMaybe]}>
+                          {isGoing ? 'Going ✓' : 'Maybe'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Association Admin Quick Delete on Top Right */}
+                  {isAssociationAdmin && (
+                    <TouchableOpacity
+                      style={styles.cardTopDeleteBtn}
+                      activeOpacity={0.7}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleDeleteEvent(item);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={14} color="#EF4444" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
                 {/* Main Card Content */}
                 <View style={styles.cardContentRow}>
                   {/* Clean Date Badge */}
@@ -265,36 +312,10 @@ export const EventsScreen: React.FC = () => {
 
                   {/* Right Details Column */}
                   <View style={styles.cardRightColumn}>
-                    {/* Top Badges Line */}
-                    <View style={styles.badgesLine}>
-                      <View style={[styles.scopeTag, isPublic ? styles.scopeTagPublic : styles.scopeTagPrivate]}>
-                        <Text style={[styles.scopeTagText, isPublic ? styles.scopeTagTextPublic : styles.scopeTagTextPrivate]}>
-                          {isPublic ? 'Public' : 'Association'}
-                        </Text>
-                      </View>
-
-                      {item.trackAttendance && (
-                        <View style={styles.attendancePill}>
-                          <Ionicons name="qr-code-outline" size={10} color={COLORS.brandTeal} />
-                          <Text style={styles.attendancePillText}>Check-in</Text>
-                        </View>
-                      )}
-
-                      {item.rsvp && (
-                        <View style={[styles.rsvpMiniBadge, isGoing ? styles.rsvpMiniGoing : styles.rsvpMiniMaybe]}>
-                          <Text style={[styles.rsvpMiniText, isGoing ? styles.rsvpMiniTextGoing : styles.rsvpMiniTextMaybe]}>
-                            {isGoing ? 'Going ✓' : 'Maybe'}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Event Title */}
                     <Text style={styles.eventTitle} numberOfLines={2}>
                       {item.title}
                     </Text>
 
-                    {/* Venue & Time on concise lines */}
                     <View style={styles.metaRow}>
                       <Ionicons name="location-outline" size={13} color="#64748B" />
                       <Text style={styles.metaText} numberOfLines={1}>{item.venue}</Text>
@@ -306,7 +327,7 @@ export const EventsScreen: React.FC = () => {
                     </View>
 
                     <Text style={styles.hostText} numberOfLines={1}>
-                      By {item.byAssociation.replace(' (yours)', '')}
+                      Organized by {item.byAssociation.replace(' (yours)', '')}
                     </Text>
                   </View>
                 </View>
@@ -314,7 +335,7 @@ export const EventsScreen: React.FC = () => {
                 {/* Subtle Divider */}
                 <View style={styles.cardDivider} />
 
-                {/* Card Action Controls */}
+                {/* Clean Card Footer: RSVP on Left, Pass & Scanner on Right */}
                 <View style={styles.cardFooter}>
                   {/* RSVP Toggle Buttons */}
                   <View style={styles.rsvpButtonGroup}>
@@ -328,7 +349,7 @@ export const EventsScreen: React.FC = () => {
                     >
                       <Ionicons
                         name={isGoing ? 'checkmark-circle' : 'checkmark-outline'}
-                        size={14}
+                        size={13}
                         color={isGoing ? '#FFFFFF' : '#475569'}
                       />
                       <Text style={[styles.rsvpBtnLabel, isGoing && styles.rsvpBtnLabelActive]}>
@@ -350,9 +371,9 @@ export const EventsScreen: React.FC = () => {
                     </TouchableOpacity>
                   </View>
 
-                  {/* Attendance & Details Actions */}
+                  {/* Right Action Buttons */}
                   <View style={styles.actionRightButtons}>
-                    {/* Event QR Code Button */}
+                    {/* Event QR Pass Button */}
                     {item.trackAttendance && (
                       <TouchableOpacity
                         style={styles.cardQrBtn}
@@ -363,11 +384,11 @@ export const EventsScreen: React.FC = () => {
                         }}
                       >
                         <Ionicons name="qr-code-outline" size={13} color={COLORS.brandNavy} />
-                        <Text style={styles.cardQrBtnText}>QR</Text>
+                        <Text style={styles.cardQrBtnText}>QR Pass</Text>
                       </TouchableOpacity>
                     )}
 
-                    {/* QR Scan Button if attendance enabled */}
+                    {/* QR Scan Button for Attendance Tracking */}
                     {item.trackAttendance && (
                       <TouchableOpacity
                         style={styles.cardScanBtn}
@@ -377,7 +398,7 @@ export const EventsScreen: React.FC = () => {
                           handleOpenScanner(item);
                         }}
                       >
-                        <Ionicons name="scan-outline" size={14} color={COLORS.brandTeal} />
+                        <Ionicons name="scan-outline" size={13} color={COLORS.brandTeal} />
                         <Text style={styles.cardScanBtnText}>Scan</Text>
                       </TouchableOpacity>
                     )}
@@ -392,36 +413,7 @@ export const EventsScreen: React.FC = () => {
                           selectEventForAttendance(item);
                         }}
                       >
-                        <Ionicons name="people-outline" size={14} color={COLORS.brandNavy} />
-                        <Text style={styles.cardRosterBtnText}>Roster</Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {/* Details Link */}
-                    <TouchableOpacity
-                      style={styles.detailsLink}
-                      activeOpacity={0.75}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        setSelectedEventDetails(item);
-                      }}
-                    >
-                      <Text style={styles.detailsLinkText}>Details</Text>
-                      <Feather name="chevron-right" size={13} color={COLORS.brandNavy} />
-                    </TouchableOpacity>
-
-                    {/* Delete Event Button for Association Admins */}
-                    {isAssociationAdmin && (
-                      <TouchableOpacity
-                        style={styles.cardDeleteBtn}
-                        activeOpacity={0.75}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleDeleteEvent(item);
-                        }}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons name="trash-outline" size={13} color="#EF4444" />
+                        <Ionicons name="people-outline" size={13} color={COLORS.brandNavy} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -471,7 +463,7 @@ export const EventsScreen: React.FC = () => {
         onClose={() => setScannerEvent(null)}
         loggedPastor={loggedPastor}
         onRecordAttendance={(eventId, pastorId) => {
-          const pid = pastorId || loggedPastor?.id;
+          const pid = pastorId || loggedPastor?.id || pastors[0]?.id || 'p-self';
           if (pid && !attendanceMap[pid]) {
             toggleAttendance(pid);
           }
@@ -890,6 +882,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
   },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardTopDeleteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cardRightColumn: {
     flex: 1,
     gap: 3,
@@ -899,9 +906,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 6,
-    marginBottom: 2,
   },
   scopeTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1034,7 +1043,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 3,
     paddingVertical: 5,
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     borderRadius: 6,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
@@ -1050,7 +1059,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingVertical: 5,
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     borderRadius: 6,
     backgroundColor: '#E6F7F7',
     borderWidth: 1,
@@ -1062,40 +1071,12 @@ const styles = StyleSheet.create({
     color: COLORS.brandTeal,
   },
   cardRosterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingVertical: 5,
-    paddingHorizontal: 8,
+    width: 28,
+    height: 28,
     borderRadius: 6,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
     borderColor: '#CBD5E1',
-  },
-  cardRosterBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.brandNavy,
-  },
-  detailsLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 1,
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-  },
-  detailsLinkText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.brandNavy,
-  },
-  cardDeleteBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-    borderRadius: 6,
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
     alignItems: 'center',
     justifyContent: 'center',
   },

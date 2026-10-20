@@ -35,7 +35,7 @@ export const INITIAL_EVENTS: AssociationEvent[] = [
     scope: 'public',
     byAssociation: 'United Christian Forum & Regional Pastors Fellowship',
     isMyAssociation: false,
-    trackAttendance: false,
+    trackAttendance: true,
     rsvp: null,
   },
   {
@@ -63,7 +63,7 @@ export const INITIAL_EVENTS: AssociationEvent[] = [
     scope: 'public',
     byAssociation: 'National Pastors Network',
     isMyAssociation: false,
-    trackAttendance: false,
+    trackAttendance: true,
     rsvp: null,
   },
 ];
