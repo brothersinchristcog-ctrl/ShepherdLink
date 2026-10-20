@@ -12,6 +12,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { AssociationEvent } from '../types';
 import { COLORS } from '../constants/theme';
+import { useApp } from '../context/AppContext';
 
 interface EventQRCodeModalProps {
   event: AssociationEvent | null;
@@ -24,9 +25,13 @@ export const EventQRCodeModal: React.FC<EventQRCodeModalProps> = ({
   visible,
   onClose,
 }) => {
+  const { loggedPastor, pastors, currentUser } = useApp();
   if (!event) return null;
 
-  // Real scannable payload: JSON with prefix
+  const pastorId = loggedPastor?.id || pastors[0]?.id || 'p-self';
+  const pastorName = loggedPastor?.name || currentUser?.name || 'Pastor Member';
+
+  // Real scannable payload: JSON with attendee identity & unique pass ID
   const qrPayload = JSON.stringify({
     app: 'ShepherdLink',
     type: 'EVENT_CHECKIN',
@@ -35,6 +40,9 @@ export const EventQRCodeModal: React.FC<EventQRCodeModalProps> = ({
     venue: event.venue,
     date: `${event.month} ${event.day}`,
     associationId: event.associationId,
+    passId: `PASS-${event.id}-${pastorId}`,
+    pastorId,
+    pastorName,
   });
 
   const handleShare = async () => {

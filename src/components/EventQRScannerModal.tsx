@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { AssociationEvent, Pastor } from '../types';
 import { COLORS } from '../constants/theme';
+import { useApp } from '../context/AppContext';
 
 // Safely check if expo-camera native module is compiled into the current client binary
 let NativeCameraView: any = null;
@@ -124,6 +125,20 @@ const CameraLiveView: React.FC<CameraLiveViewProps> = ({ onScan, scanned }) => {
   );
 };
 
+export type ScanStatus = 'SUCCESS' | 'DUPLICATE' | 'INVALID_EVENT' | 'INVALID_FORMAT';
+
+interface ScanOutcome {
+  status: ScanStatus;
+  title: string;
+  subtitle: string;
+  badgeText: string;
+  pastorName?: string;
+  venue?: string;
+  time?: string;
+  reason?: string;
+  code?: string;
+}
+
 interface EventQRScannerModalProps {
   event: AssociationEvent | null;
   visible: boolean;
@@ -139,12 +154,19 @@ export const EventQRScannerModal: React.FC<EventQRScannerModalProps> = ({
   loggedPastor,
   onRecordAttendance,
 }) => {
+  const { attendanceMap, pastors, currentUser } = useApp();
   const [scanned, setScanned] = useState(false);
-  const [scannedData, setScannedData] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
+  const [scannedTokens, setScannedTokens] = useState<Set<string>>(new Set());
+
+  const handleResetScanner = () => {
+    setScanned(false);
+    setOutcome(null);
+  };
 
   const handleClose = () => {
     setScanned(false);
-    setScannedData(null);
+    setOutcome(null);
     onClose();
   };
 
@@ -152,28 +174,119 @@ export const EventQRScannerModal: React.FC<EventQRScannerModalProps> = ({
 
   const handleScanCode = (code: string) => {
     if (scanned || !code) return;
-    setScanned(true);
-    setScannedData(code);
+    const trimmedCode = code.trim();
 
-    let targetPastorId = loggedPastor?.id;
+    let parsed: any = null;
+    let isShepherdLinkCode = false;
+    let codeEventId: string | null = null;
+    let targetPastorId: string | null = null;
+    let targetPastorName: string | null = null;
+    let passId: string | null = null;
+
     try {
-      const parsed = JSON.parse(code);
-      if (parsed.pastorId) {
-        targetPastorId = parsed.pastorId;
+      parsed = JSON.parse(trimmedCode);
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.app === 'ShepherdLink' || parsed.type === 'EVENT_CHECKIN' || parsed.eventId) {
+          isShepherdLinkCode = true;
+          codeEventId = parsed.eventId || null;
+          targetPastorId = parsed.pastorId || null;
+          targetPastorName = parsed.pastorName || null;
+          passId = parsed.passId || null;
+        }
       }
     } catch {
-      if (code.startsWith('p-')) {
-        targetPastorId = code;
+      if (trimmedCode.startsWith('SHEP-EV-')) {
+        isShepherdLinkCode = true;
+        codeEventId = trimmedCode.replace('SHEP-EV-', '').trim();
+      } else if (trimmedCode.startsWith('p-')) {
+        isShepherdLinkCode = true;
+        targetPastorId = trimmedCode;
       }
     }
 
-    onRecordAttendance(event.id, targetPastorId);
+    // CHECK 1: INVALID FORMAT / UNRECOGNIZED QR
+    if (!isShepherdLinkCode) {
+      setScanned(true);
+      setOutcome({
+        status: 'INVALID_FORMAT',
+        title: 'Invalid QR Code',
+        badgeText: 'INVALID QR · UNRECOGNIZED',
+        subtitle: 'This QR code is not recognized as a valid ShepherdLink pass.',
+        reason: 'The scanned code is not in the correct format for event attendance check-in.',
+        code: trimmedCode.length > 50 ? trimmedCode.substring(0, 47) + '...' : trimmedCode,
+      });
+      return;
+    }
+
+    // CHECK 2: WRONG EVENT PASS
+    if (codeEventId && event.id && codeEventId !== event.id) {
+      setScanned(true);
+      setOutcome({
+        status: 'INVALID_EVENT',
+        title: 'Wrong Event Pass',
+        badgeText: 'INVALID PASS · WRONG EVENT',
+        subtitle: 'This QR pass belongs to a different event, not for this check-in session.',
+        reason: parsed?.title ? `Pass is for: ${parsed.title}` : `Pass Event ID: ${codeEventId}`,
+        code: trimmedCode,
+      });
+      return;
+    }
+
+    // Resolve attendee pastor identity
+    const effectivePastorId = targetPastorId || loggedPastor?.id || pastors[0]?.id || 'p-self';
+    const foundPastor = pastors.find((p) => p.id === effectivePastorId) || loggedPastor;
+    const resolvedName = targetPastorName || foundPastor?.name || currentUser?.name || 'Pastor Member';
+
+    // Unique token representing this specific ticket/attendee check-in
+    const passToken = passId || `${event.id}:${effectivePastorId}`;
+
+    // CHECK 3: DUPLICATE QR (Already scanned in this session or pastor already marked present)
+    const isAlreadyPresent = !!attendanceMap[effectivePastorId];
+    const isTokenAlreadyScanned = scannedTokens.has(passToken) || scannedTokens.has(trimmedCode);
+
+    if (isAlreadyPresent || isTokenAlreadyScanned) {
+      setScanned(true);
+      setOutcome({
+        status: 'DUPLICATE',
+        title: 'Duplicate QR Code',
+        badgeText: 'DUPLICATE QR · ALREADY CHECKED IN',
+        subtitle: `${resolvedName} has already checked in for this event. Duplicate scans are rejected.`,
+        pastorName: resolvedName,
+        reason: `Attendance is already marked PRESENT for ${event.title}.`,
+        code: trimmedCode,
+      });
+      return;
+    }
+
+    // CHECK 4: SUCCESSFUL FIRST-TIME SCAN
+    setScannedTokens((prev) => new Set(prev).add(passToken).add(trimmedCode));
+    onRecordAttendance(event.id, effectivePastorId);
+
+    setScanned(true);
+    setOutcome({
+      status: 'SUCCESS',
+      title: 'Attendance Counted!',
+      badgeText: 'VALID PASS · ATTENDANCE COUNTED',
+      subtitle: `${resolvedName} is verified and successfully marked PRESENT.`,
+      pastorName: resolvedName,
+      venue: event.venue,
+      time: event.time,
+      code: trimmedCode,
+    });
   };
 
   const handleManualScanSimulation = () => {
-    setScanned(true);
-    setScannedData(`SHEP-EV-${event.id}`);
-    onRecordAttendance(event.id, loggedPastor?.id);
+    const effectivePastorId = loggedPastor?.id || pastors[0]?.id || 'p-self';
+    const sampleCode = JSON.stringify({
+      app: 'ShepherdLink',
+      type: 'EVENT_CHECKIN',
+      eventId: event.id,
+      title: event.title,
+      pastorId: effectivePastorId,
+      pastorName: loggedPastor?.name || currentUser?.name || 'Pastor Member',
+      passId: `PASS-${event.id}-${effectivePastorId}`,
+    });
+    handleScanCode(sampleCode);
   };
 
   return (
@@ -196,7 +309,7 @@ export const EventQRScannerModal: React.FC<EventQRScannerModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          {!scanned ? (
+          {!scanned || !outcome ? (
             <>
               {/* Camera Scanner Viewfinder */}
               <View style={styles.viewfinderContainer}>
@@ -219,8 +332,8 @@ export const EventQRScannerModal: React.FC<EventQRScannerModalProps> = ({
 
               <Text style={styles.scannerInstruction}>
                 {isNativeCameraAvailable
-                  ? 'Point camera at the event check-in QR code to count attendance instantly.'
-                  : 'Scan the event check-in QR code displayed at the entrance or on the pulpit screen to count attendance.'}
+                  ? 'Point camera at the attendee pass QR code to verify and count attendance instantly.'
+                  : 'Scan the attendee pass QR code to verify attendance.'}
               </Text>
 
               {/* Attendance Record Action */}
@@ -234,39 +347,157 @@ export const EventQRScannerModal: React.FC<EventQRScannerModalProps> = ({
               </TouchableOpacity>
             </>
           ) : (
-            /* Scanned Success Confirmation State */
-            <View style={styles.scanSuccessWrap}>
-              <View style={styles.scanSuccessCircle}>
-                <Ionicons name="checkmark-circle" size={56} color={COLORS.green} />
+            /* Scanned Outcome State: Success, Duplicate, or Invalid */
+            <View style={styles.scanOutcomeWrap}>
+              {/* Outcome Status Circle Icon */}
+              <View
+                style={[
+                  styles.outcomeCircle,
+                  outcome.status === 'SUCCESS' && styles.outcomeCircleSuccess,
+                  outcome.status === 'DUPLICATE' && styles.outcomeCircleDuplicate,
+                  (outcome.status === 'INVALID_EVENT' || outcome.status === 'INVALID_FORMAT') &&
+                    styles.outcomeCircleInvalid,
+                ]}
+              >
+                <Ionicons
+                  name={
+                    outcome.status === 'SUCCESS'
+                      ? 'checkmark-circle'
+                      : outcome.status === 'DUPLICATE'
+                      ? 'alert-circle'
+                      : 'close-circle'
+                  }
+                  size={52}
+                  color={
+                    outcome.status === 'SUCCESS'
+                      ? COLORS.green
+                      : outcome.status === 'DUPLICATE'
+                      ? '#D97706'
+                      : '#DC2626'
+                  }
+                />
               </View>
-              <Text style={styles.scanSuccessTitle}>Attendance Counted!</Text>
-              <Text style={styles.scanSuccessSub}>
-                <Text style={{ fontWeight: '700', color: '#0F172A' }}>
-                  {loggedPastor?.name || 'Pastor'}
-                </Text>{' '}
-                is successfully verified and marked{' '}
-                <Text style={{ fontWeight: '800', color: COLORS.green }}>PRESENT</Text> for{' '}
-                <Text style={{ fontWeight: '700', color: '#0F172A' }}>{event.title}</Text>.
-              </Text>
 
-              <View style={styles.scanSuccessDetailBox}>
-                <Text style={styles.scanSuccessDetailItem}>
-                  📍 Venue: {event.venue}
-                </Text>
-                <Text style={styles.scanSuccessDetailItem}>
-                  ⏰ Time: {event.time}
-                </Text>
-                <Text style={styles.scanSuccessDetailItem}>
-                  🔑 Code: {scannedData || `SHEP-EV-${event.id}`}
-                </Text>
-                <Text style={[styles.scanSuccessDetailItem, { color: COLORS.green, fontWeight: '700' }]}>
-                  ✅ Attendance Status: Recorded & Synced
+              {/* Status Badge */}
+              <View
+                style={[
+                  styles.outcomeBadge,
+                  outcome.status === 'SUCCESS' && styles.outcomeBadgeSuccess,
+                  outcome.status === 'DUPLICATE' && styles.outcomeBadgeDuplicate,
+                  (outcome.status === 'INVALID_EVENT' || outcome.status === 'INVALID_FORMAT') &&
+                    styles.outcomeBadgeInvalid,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.outcomeBadgeText,
+                    outcome.status === 'SUCCESS' && styles.outcomeBadgeTextSuccess,
+                    outcome.status === 'DUPLICATE' && styles.outcomeBadgeTextDuplicate,
+                    (outcome.status === 'INVALID_EVENT' || outcome.status === 'INVALID_FORMAT') &&
+                      styles.outcomeBadgeTextInvalid,
+                  ]}
+                >
+                  {outcome.badgeText}
                 </Text>
               </View>
 
-              <TouchableOpacity style={styles.scanDoneBtn} onPress={handleClose} activeOpacity={0.8}>
-                <Text style={styles.scanDoneBtnText}>Done</Text>
-              </TouchableOpacity>
+              {/* Title & Subtitle */}
+              <Text style={styles.outcomeTitle}>{outcome.title}</Text>
+              <Text style={styles.outcomeSub}>{outcome.subtitle}</Text>
+
+              {/* Details Card */}
+              <View
+                style={[
+                  styles.outcomeDetailBox,
+                  outcome.status === 'SUCCESS' && styles.outcomeDetailBoxSuccess,
+                  outcome.status === 'DUPLICATE' && styles.outcomeDetailBoxDuplicate,
+                  (outcome.status === 'INVALID_EVENT' || outcome.status === 'INVALID_FORMAT') &&
+                    styles.outcomeDetailBoxInvalid,
+                ]}
+              >
+                {outcome.pastorName && (
+                  <View style={styles.outcomeDetailRow}>
+                    <Ionicons name="person-outline" size={14} color="#475569" />
+                    <Text style={styles.outcomeDetailLabel}>Attendee:</Text>
+                    <Text style={styles.outcomeDetailVal} numberOfLines={1}>
+                      {outcome.pastorName}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.outcomeDetailRow}>
+                  <Ionicons name="calendar-outline" size={14} color="#475569" />
+                  <Text style={styles.outcomeDetailLabel}>Event:</Text>
+                  <Text style={styles.outcomeDetailVal} numberOfLines={1}>
+                    {event.title}
+                  </Text>
+                </View>
+
+                {outcome.status === 'SUCCESS' && (
+                  <>
+                    <View style={styles.outcomeDetailRow}>
+                      <Ionicons name="location-outline" size={14} color="#475569" />
+                      <Text style={styles.outcomeDetailLabel}>Venue:</Text>
+                      <Text style={styles.outcomeDetailVal} numberOfLines={1}>
+                        {event.venue}
+                      </Text>
+                    </View>
+                    <View style={styles.outcomeDetailRow}>
+                      <Ionicons name="checkmark-done" size={14} color={COLORS.green} />
+                      <Text style={[styles.outcomeDetailVal, { color: COLORS.green, fontWeight: '700' }]}>
+                        Status: Marked PRESENT & Synced
+                      </Text>
+                    </View>
+                  </>
+                )}
+
+                {outcome.status === 'DUPLICATE' && (
+                  <View style={styles.outcomeDetailRow}>
+                    <Ionicons name="warning-outline" size={14} color="#B45309" />
+                    <Text style={[styles.outcomeDetailVal, { color: '#B45309', fontWeight: '700' }]}>
+                      Notice: Attendance already counted
+                    </Text>
+                  </View>
+                )}
+
+                {outcome.reason && (
+                  <View style={styles.outcomeDetailRow}>
+                    <Ionicons name="alert-circle-outline" size={14} color="#DC2626" />
+                    <Text style={[styles.outcomeDetailVal, { color: '#DC2626' }]} numberOfLines={2}>
+                      {outcome.reason}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.outcomeActionsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.scanNextBtn,
+                    outcome.status === 'DUPLICATE' && styles.scanNextBtnDuplicate,
+                    (outcome.status === 'INVALID_EVENT' || outcome.status === 'INVALID_FORMAT') &&
+                      styles.scanNextBtnInvalid,
+                  ]}
+                  onPress={handleResetScanner}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="scan-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.scanNextBtnText}>
+                    {outcome.status === 'SUCCESS' || outcome.status === 'DUPLICATE'
+                      ? 'Scan Next Pass'
+                      : 'Try Again'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.outcomeDoneBtn}
+                  onPress={handleClose}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.outcomeDoneBtnText}>Done</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
@@ -494,52 +725,145 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  scanSuccessWrap: {
+  scanOutcomeWrap: {
     alignItems: 'center',
     paddingVertical: 12,
     gap: 10,
+    width: '100%',
   },
-  scanSuccessCircle: {
+  outcomeCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 2,
   },
-  scanSuccessTitle: {
+  outcomeCircleSuccess: {
+    backgroundColor: '#DCFCE7',
+  },
+  outcomeCircleDuplicate: {
+    backgroundColor: '#FEF3C7',
+  },
+  outcomeCircleInvalid: {
+    backgroundColor: '#FEE2E2',
+  },
+  outcomeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+  },
+  outcomeBadgeSuccess: {
+    backgroundColor: '#DCFCE7',
+  },
+  outcomeBadgeDuplicate: {
+    backgroundColor: '#FEF3C7',
+  },
+  outcomeBadgeInvalid: {
+    backgroundColor: '#FEE2E2',
+  },
+  outcomeBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  outcomeBadgeTextSuccess: {
+    color: '#15803D',
+  },
+  outcomeBadgeTextDuplicate: {
+    color: '#B45309',
+  },
+  outcomeBadgeTextInvalid: {
+    color: '#B91C1C',
+  },
+  outcomeTitle: {
     fontSize: 20,
     fontWeight: '800',
     color: '#0F172A',
+    textAlign: 'center',
   },
-  scanSuccessSub: {
+  outcomeSub: {
     fontSize: 13,
     color: '#475569',
     textAlign: 'center',
     lineHeight: 18,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
   },
-  scanSuccessDetailBox: {
-    backgroundColor: '#F8FAFC',
+  outcomeDetailBox: {
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     width: '100%',
-    gap: 5,
+    gap: 6,
     marginTop: 2,
   },
-  scanSuccessDetailItem: {
-    fontSize: 12,
-    color: '#334155',
-    fontWeight: '600',
+  outcomeDetailBoxSuccess: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
   },
-  scanDoneBtn: {
-    width: '100%',
-    height: 46,
-    borderRadius: 12,
-    backgroundColor: COLORS.brandNavy,
+  outcomeDetailBoxDuplicate: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  outcomeDetailBoxInvalid: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  outcomeDetailRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+  },
+  outcomeDetailLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  outcomeDetailVal: {
+    fontSize: 12,
+    color: '#0F172A',
+    fontWeight: '600',
+    flex: 1,
+  },
+  outcomeActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
     marginTop: 6,
   },
-  scanDoneBtnText: {
+  scanNextBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: COLORS.brandTeal,
+  },
+  scanNextBtnDuplicate: {
+    backgroundColor: '#D97706',
+  },
+  scanNextBtnInvalid: {
+    backgroundColor: COLORS.brandNavy,
+  },
+  scanNextBtnText: {
     color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  outcomeDoneBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  outcomeDoneBtnText: {
+    color: COLORS.brandNavy,
     fontSize: 14,
     fontWeight: '700',
   },
